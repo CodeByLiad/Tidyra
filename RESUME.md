@@ -1,6 +1,6 @@
 # Resume Tidyra here
 
-**Checkpoint: 2026-11-13, 04:45.** Builds clean, 13 unit tests pass, verified end to end on an emulator. Finish review applied, verdict applied.
+**Checkpoint: 2026-11-13, 05:10.** Builds clean, 18 unit tests pass, verified end to end on an emulator. Finish review applied, verdict applied, `DESIGN.md` written. This is the finished state.
 
 ## Read first
 `PRD.md` (what it should become) · `PRODUCT.md` (product truth, platform limits) · `DESIGN.md` (visual system, written at finish) · `.impeccable/build-notes.md` (toolchain, version pins) · `.impeccable/surfaces/digital-jinatra-tidyra-ui-mainactivity-kt-1037687c.md` (direction contract — its OWN-WORLD block is superseded by the pinned editorial world; its four raises still bind).
@@ -19,6 +19,7 @@ Seeded with ~260 MB of realistic mess, then exercised:
 - **duplicates keep the original**: the camera copy survives even though it is the newest file; the old "keep the oldest" rule would have deleted the camera roll and kept the chat attachment
 - **protected files are excluded**: the `msgstore.db.crypt14` duplicate is never offered
 - **on-device AI**: SmolLM downloads (exactly 166,754,726 bytes), loads, and answers; Gemma 3 1B is refused on 2.5 GB RAM with a stated reason
+- **organising refuses to relocate protected files**: `cueplay-backup.json`, `msgstore.db.crypt14` and `rgb-wallet-backup.bin` stay in Download, each with its reason on screen. Moving a backup breaks nothing structurally, but it can break the restore that goes looking for it by path.
 
 ## Not verified
 - **Shizuku**: installed on the emulator but its ADB-start file never appears, so cache clearing (`pm trim-caches`) and silent uninstall are unexercised. Guards are in place and `isProtectedPackage` is unit-tested.

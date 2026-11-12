@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -356,8 +355,6 @@ private val formatter = SimpleDateFormat("d MMM yyyy", Locale.getDefault())
 
 private fun dateOf(millis: Long): String =
     if (millis <= 0) "never opened" else formatter.format(Date(millis))
-
-private fun unusedColor(): Color = Color.Unspecified
 
 /**
  * The way back. The arrow is drawn, not typed: a Unicode arrow set in the label's font

@@ -221,37 +221,6 @@ fun StationScreen(
 // -- Page furniture --------------------------------------------------------------------
 
 @Composable
-private fun Masthead(state: StationState, onScan: () -> Unit) {
-    val type = LocalStationType.current
-    Column {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .statusBarsPadding()
-                .padding(start = Module.x3, end = Module.x3, top = Module.x2, bottom = Module.u),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                text = "Tidyra",
-                style = type.wordmark,
-                color = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier
-                    .weight(1f)
-                    .semantics { heading() },
-            )
-            TextButton(onClick = onScan, enabled = !state.scanning) {
-                Text(
-                    text = if (state.snapshot?.byCategory.isNullOrEmpty()) "SCAN" else "RESCAN",
-                    style = type.stencil,
-                    color = MaterialTheme.colorScheme.primary,
-                )
-            }
-        }
-        HorizontalDivider(color = MaterialTheme.colorScheme.outline)
-    }
-}
-
-@Composable
 private fun Hero(state: StationState) {
     val type = LocalStationType.current
     val free = state.snapshot?.freeBytes ?: Bytes.ZERO
@@ -715,5 +684,3 @@ private fun androidx.compose.foundation.lazy.LazyListScope.itemsIndexed(
     itemContent: @Composable (Int, StationState.Container) -> Unit,
 ) = items(items.size) { index -> itemContent(index, items[index]) }
 
-@Composable
-private fun Spacer8() = Spacer(Modifier.height(Module.u))

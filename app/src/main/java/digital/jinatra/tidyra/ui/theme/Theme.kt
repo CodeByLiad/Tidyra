@@ -170,7 +170,6 @@ data class StationType(
         fontSize = 11.sp,
         letterSpacing = 0.14.em,
     ),
-    /** A value at the end of a row. */
     /** A value at the end of a row. Playfair, like every other figure in the app. */
     val amount: TextStyle = TextStyle(
         fontFamily = Editorial,

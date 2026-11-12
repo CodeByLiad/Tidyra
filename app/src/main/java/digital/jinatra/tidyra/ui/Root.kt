@@ -22,7 +22,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.layout.width
@@ -312,8 +311,6 @@ private fun Masthead(
 private fun SectionTabs(current: Section, onSelect: (Section) -> Unit) {
     val colors = MaterialTheme.colorScheme
     Column {
-        // Five sections do not fit a phone row at a readable size, so the strip scrolls
-        // rather than squeezing the labels or wrapping one onto a second line.
         // Spread across the full width: the first tab sits on the masthead's left margin
         // and the last ends on the same margin at the right. Five short labels fit a phone
         // even at large font scales; each one holds a single line and ellipsises rather
