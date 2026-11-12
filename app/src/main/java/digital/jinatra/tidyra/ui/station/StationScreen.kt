@@ -98,6 +98,12 @@ fun StationScreen(
         ) {
             item { Hero(state) }
 
+            // Nothing has been scanned yet: the page has one job, so it asks for it here
+            // rather than hiding the action in the corner of the masthead.
+            if (!state.scanning && state.containers.isEmpty()) {
+                item { FirstScan(onScan, state.hasAllFilesAccess) }
+            }
+
             // Below the figure, not above it: the headline number is what the page is
             // about, and progress is a note on it rather than something that displaces it.
             if (state.scanning) item { ScanProgress(state) }
@@ -527,6 +533,47 @@ private fun Footnote(text: String) = Text(
     color = MaterialTheme.colorScheme.onSurfaceVariant,
     modifier = Modifier.padding(horizontal = Module.x3, vertical = Module.u),
 )
+
+@Composable
+private fun FirstScan(onScan: () -> Unit, hasAccess: Boolean) {
+    val type = LocalStationType.current
+    val colors = MaterialTheme.colorScheme
+    Column(Modifier.padding(horizontal = Module.x3, vertical = Module.u)) {
+        HorizontalDivider(color = colors.outline)
+        Text(
+            text = "Nothing scanned yet",
+            style = type.section,
+            color = colors.onSurface,
+            modifier = Modifier.padding(top = Module.x3),
+        )
+        Text(
+            text = if (hasAccess) {
+                "A scan reads your folders, hashes files to prove which are identical, and measures every app. It takes about a minute and changes nothing."
+            } else {
+                "Grant all-files access above, then scan. Tidyra reads your folders, proves which files are identical, and measures every app — changing nothing."
+            },
+            style = MaterialTheme.typography.bodyMedium,
+            color = colors.onSurfaceVariant,
+            modifier = Modifier.padding(top = Module.u),
+        )
+        Button(
+            onClick = onScan,
+            enabled = hasAccess,
+            shape = RoundedCornerShape(Module.half),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = Crimson,
+                contentColor = colors.onPrimary,
+                disabledContainerColor = colors.surfaceContainerHighest,
+                disabledContentColor = colors.onSurfaceVariant,
+            ),
+            modifier = Modifier
+                .padding(top = Module.x2, bottom = Module.u)
+                .fillMaxWidth(),
+        ) {
+            Text("SCAN THIS PHONE", style = type.stencil)
+        }
+    }
+}
 
 @Composable
 private fun ScanProgress(state: StationState) {

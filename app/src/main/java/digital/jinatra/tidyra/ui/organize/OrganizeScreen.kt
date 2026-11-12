@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -55,12 +56,10 @@ fun OrganizeScreen(
             Column(
                 Modifier.padding(start = Module.x3, end = Module.x3, top = Module.x2, bottom = Module.u),
             ) {
-                Text("Organise", style = type.wordmark, color = colors.onSurface)
                 Text(
                     text = "Loose files get filed by type. Nothing is deleted here, and every move can be undone in one tap.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = colors.onSurfaceVariant,
-                    modifier = Modifier.padding(top = Module.half),
                 )
             }
             HorizontalDivider(color = colors.outline)
@@ -89,6 +88,49 @@ fun OrganizeScreen(
             }
         }
 
+        if (state.layout.isNotEmpty()) {
+            item {
+                Text(
+                    text = "In this folder",
+                    style = type.section,
+                    color = colors.onSurface,
+                    modifier = Modifier.padding(start = Module.x3, end = Module.x3, top = Module.x2, bottom = Module.u),
+                )
+            }
+            items(state.layout) { entry ->
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = Module.x3, vertical = Module.u),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(Modifier.weight(1f)) {
+                        Text(
+                            text = if (entry.loose) entry.name else entry.name + "/",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = if (entry.loose) Crimson else colors.onSurface,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                        Text(
+                            text = Format.count(entry.files, "file"),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = colors.onSurfaceVariant,
+                        )
+                    }
+                    Text(
+                        text = Format.size(entry.bytes),
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = colors.onSurfaceVariant,
+                    )
+                }
+                HorizontalDivider(
+                    modifier = Modifier.padding(horizontal = Module.x3),
+                    color = colors.outlineVariant,
+                )
+            }
+        }
+
         val plan = state.plan
         when {
             state.selected == null -> item {
@@ -98,7 +140,21 @@ fun OrganizeScreen(
             state.working -> item { Footnote("Reading ${state.selected.name}…") }
 
             plan == null || plan.moves.isEmpty() -> item {
-                Footnote("Nothing loose in ${state.selected.name}. It is already filed.")
+                // "Nothing to do" and "everything here was deliberately skipped" are
+                // different answers, and the second one owes the user its reasons.
+                Footnote(
+                    buildString {
+                        append("Nothing to file in ${state.selected.name}.")
+                        val skipped = plan?.skipped.orEmpty()
+                        if (skipped.isNotEmpty()) {
+                            append(" ${Format.count(skipped.size, "file")} left alone: ")
+                            append(skipped.take(3).joinToString("; ") { (file, reason) -> "${file.name} — $reason" })
+                            if (skipped.size > 3) append("; and ${skipped.size - 3} more")
+                        } else {
+                            append(" Every file here is already in a folder of its own.")
+                        }
+                    },
+                )
             }
 
             else -> {

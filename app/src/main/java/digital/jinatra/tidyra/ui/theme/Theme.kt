@@ -33,15 +33,15 @@ import digital.jinatra.tidyra.R
 
 // -- Materials -------------------------------------------------------------------------
 
-val Paper = Color(0xFFF7F4EF)
-val PaperNight = Color(0xFF12100E)
+val Paper = Color(0xFFF3EDE3)
+val PaperNight = Color(0xFF131110)
 val Ink = Color(0xFF15110E)
 val InkNight = Color(0xFFF2EDE6)
 val Muted = Color(0xFF6B635A)
 val MutedNight = Color(0xFF9A9188)
-val Crimson = Color(0xFFB3122E)
-val CrimsonNight = Color(0xFFE2546B)
-val Rule = Color(0xFFE2DCD2)
+val Crimson = Color(0xFFD6203F)
+val CrimsonNight = Color(0xFFFF5A72)
+val Rule = Color(0xFFDED6C8)
 val RuleNight = Color(0xFF2A2724)
 val Olive = Color(0xFF4C6B4F)
 val Amber = Color(0xFF9A6B14)
@@ -49,7 +49,7 @@ val Amber = Color(0xFF9A6B14)
 private val LightScheme = lightColorScheme(
     primary = Crimson,
     onPrimary = Paper,
-    primaryContainer = Color(0xFFF6DCE0),
+    primaryContainer = Color(0xFFF7D9DE),
     onPrimaryContainer = Color(0xFF5C0917),
     secondary = Ink,
     onSecondary = Paper,
@@ -57,12 +57,12 @@ private val LightScheme = lightColorScheme(
     onBackground = Ink,
     surface = Paper,
     onSurface = Ink,
-    surfaceContainerLowest = Color(0xFFFFFDFA),
+    surfaceContainerLowest = Color(0xFFFAF6EE),
     surfaceContainerLow = Paper,
-    surfaceContainer = Color(0xFFF2EEE7),
-    surfaceContainerHigh = Color(0xFFEDE8E0),
+    surfaceContainer = Color(0xFFEDE6D9),
+    surfaceContainerHigh = Color(0xFFE7DFD1),
     surfaceContainerHighest = Rule,
-    surfaceVariant = Color(0xFFEDE8E0),
+    surfaceVariant = Color(0xFFE7DFD1),
     onSurfaceVariant = Muted,
     outline = Rule,
     outlineVariant = Color(0xFFEDE8E0),

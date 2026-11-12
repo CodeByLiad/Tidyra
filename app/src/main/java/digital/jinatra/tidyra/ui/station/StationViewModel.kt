@@ -167,6 +167,34 @@ class StationViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    fun restoreMany(paths: Collection<String>) {
+        viewModelScope.launch {
+            _state.update { it.copy(working = true) }
+            paths.forEach { trash.restore(it) }
+            _state.update { it.copy(working = false) }
+            refreshTrash()
+        }
+    }
+
+    fun restoreAllFromTrash() {
+        viewModelScope.launch {
+            _state.update { it.copy(working = true) }
+            trash.restoreAll()
+            _state.update { it.copy(working = false) }
+            refreshTrash()
+        }
+    }
+
+    /** Permanently deletes the chosen trashed items. The UI confirms before calling this. */
+    fun purgeMany(paths: Collection<String>) {
+        viewModelScope.launch {
+            _state.update { it.copy(working = true) }
+            trash.purge(paths)
+            _state.update { it.copy(working = false) }
+            refreshTrash()
+        }
+    }
+
     fun refreshPermissions() {
         _state.update {
             it.copy(

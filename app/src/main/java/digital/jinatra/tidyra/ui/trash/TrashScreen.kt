@@ -1,13 +1,19 @@
 package digital.jinatra.tidyra.ui.trash
 
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -17,10 +23,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.semantics.heading
-import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import digital.jinatra.tidyra.core.model.Bytes
@@ -36,48 +44,58 @@ import java.util.Locale
 /**
  * The recycle bin Android does not have.
  *
- * Deleting over ADB or through most cleaners is final. Here every approved deletion is a
- * move, recorded with where it came from, and this screen is where it goes back. The one
- * honest caveat is stated up front: trashed files still take up space until they are
- * purged, so "moved to trash" and "freed" are two different numbers.
+ * Every approved deletion is a move, recorded with where it came from, and this is where
+ * it goes back. Long-press any row to start picking several; the bar then acts on exactly
+ * what is picked. The one honest caveat stays in view: trashed files still occupy storage
+ * until they are purged, so "moved to trash" and "freed" are different numbers.
  */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun TrashScreen(
     entries: List<TrashStore.Entry>,
     totalBytes: Bytes,
     working: Boolean,
     onRestore: (String) -> Unit,
+    onRestoreMany: (Set<String>) -> Unit,
+    onRestoreAll: () -> Unit,
+    onPurgeMany: (Set<String>) -> Unit,
     onEmpty: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val type = LocalStationType.current
     val colors = MaterialTheme.colorScheme
-    var confirming by remember { mutableStateOf(false) }
+    val haptics = LocalHapticFeedback.current
+
+    val picked = remember { mutableStateMapOf<String, Boolean>() }
+    var selecting by remember { mutableStateOf(false) }
+    var confirmingEmpty by remember { mutableStateOf(false) }
+    var confirmingDelete by remember { mutableStateOf(false) }
+
+    val chosen = picked.filterValues { it }.keys
+    val chosenBytes = Bytes(entries.filter { it.originalPath in chosen }.sumOf { it.size.value })
+
+    fun clearSelection() {
+        picked.clear()
+        selecting = false
+        confirmingDelete = false
+    }
 
     LazyColumn(
         modifier = modifier.fillMaxWidth(),
         contentPadding = PaddingValues(bottom = Module.x4),
     ) {
         item {
-            Column(Modifier.padding(start = Module.x3, end = Module.x3, top = Module.x2, bottom = Module.x2)) {
-                Text(
-                    text = "Trash",
-                    style = type.wordmark,
-                    color = colors.onSurface,
-                    modifier = Modifier.semantics { heading() },
-                )
-                Text(
-                    text = if (entries.isEmpty()) {
-                        "Empty. Anything you approve for deletion lands here first, and can be put back."
-                    } else {
-                        "${Format.size(totalBytes)} held in ${Format.count(entries.size, "file")}. " +
-                            "This space is not free until the trash is emptied — that part is irreversible."
-                    },
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = colors.onSurfaceVariant,
-                    modifier = Modifier.padding(top = Module.half),
-                )
-            }
+            Text(
+                text = if (entries.isEmpty()) {
+                    "Empty. Anything you approve for deletion lands here first, and can be put back."
+                } else {
+                    "${Format.size(totalBytes)} held in ${Format.count(entries.size, "file")}. " +
+                        "This space is not free until the trash is emptied — that part is irreversible."
+                },
+                style = MaterialTheme.typography.bodyMedium,
+                color = colors.onSurfaceVariant,
+                modifier = Modifier.padding(start = Module.x3, end = Module.x3, top = Module.x2, bottom = Module.x2),
+            )
             HorizontalDivider(color = colors.outline)
         }
 
@@ -86,50 +104,130 @@ fun TrashScreen(
                 Row(
                     Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = Module.x3, vertical = Module.x2),
+                        .padding(horizontal = Module.x3, vertical = Module.u),
                     verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(Module.x2),
                 ) {
-                    Column(Modifier.weight(1f)) {
+                    if (selecting) {
                         Text(
-                            text = if (confirming) "This cannot be undone" else "Auto-purged after 14 days",
+                            text = if (confirmingDelete) {
+                                "Deleting ${chosen.size} for good"
+                            } else {
+                                "${chosen.size} picked · ${Format.size(chosenBytes)}"
+                            },
                             style = MaterialTheme.typography.bodyMedium,
-                            color = if (confirming) Crimson else colors.onSurfaceVariant,
+                            color = if (confirmingDelete) Crimson else colors.onSurfaceVariant,
+                            modifier = Modifier.weight(1f),
                         )
-                    }
-                    TextButton(onClick = { if (confirming) onEmpty().also { confirming = false } else confirming = true }, enabled = !working) {
+                        if (!confirmingDelete) {
+                            Action("PUT BACK", enabled = chosen.isNotEmpty() && !working) {
+                                onRestoreMany(chosen.toSet())
+                                clearSelection()
+                            }
+                        }
+                        Action(
+                            label = if (confirmingDelete) "YES, DELETE" else "DELETE",
+                            enabled = chosen.isNotEmpty() && !working,
+                        ) {
+                            if (confirmingDelete) {
+                                onPurgeMany(chosen.toSet())
+                                clearSelection()
+                            } else {
+                                confirmingDelete = true
+                            }
+                        }
+                        Action("CANCEL", enabled = true, color = colors.onSurfaceVariant) { clearSelection() }
+                    } else {
                         Text(
-                            text = if (confirming) "YES, DELETE FOR GOOD" else "EMPTY TRASH",
-                            style = type.stencil,
-                            color = Crimson,
+                            text = if (confirmingEmpty) "This cannot be undone" else "Auto-purged after 14 days · long-press to pick several",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = if (confirmingEmpty) Crimson else colors.onSurfaceVariant,
+                            modifier = Modifier.weight(1f),
                         )
+                        if (!confirmingEmpty) {
+                            Action("RESTORE ALL", enabled = !working) { onRestoreAll() }
+                        }
+                        Action(
+                            label = if (confirmingEmpty) "YES, EMPTY" else "EMPTY",
+                            enabled = !working,
+                        ) {
+                            if (confirmingEmpty) {
+                                onEmpty()
+                                confirmingEmpty = false
+                            } else {
+                                confirmingEmpty = true
+                            }
+                        }
                     }
                 }
                 HorizontalDivider(color = colors.outline)
             }
 
             items(entries, key = { it.trashedPath }) { entry ->
-                TrashRow(entry, working, onRestore)
+                TrashRow(
+                    entry = entry,
+                    selecting = selecting,
+                    selected = picked[entry.originalPath] == true,
+                    working = working,
+                    onRestore = { onRestore(entry.originalPath) },
+                    onTap = {
+                        if (selecting) {
+                            picked[entry.originalPath] = picked[entry.originalPath] != true
+                        }
+                    },
+                    onLongPress = {
+                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                        selecting = true
+                        picked[entry.originalPath] = true
+                    },
+                )
             }
         }
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun TrashRow(entry: TrashStore.Entry, working: Boolean, onRestore: (String) -> Unit) {
+private fun TrashRow(
+    entry: TrashStore.Entry,
+    selecting: Boolean,
+    selected: Boolean,
+    working: Boolean,
+    onRestore: () -> Unit,
+    onTap: () -> Unit,
+    onLongPress: () -> Unit,
+) {
     val type = LocalStationType.current
     val colors = MaterialTheme.colorScheme
     val name = entry.originalPath.substringAfterLast('/')
     val folder = entry.originalPath.substringBeforeLast('/').removePrefix("/storage/emulated/0/")
 
-    Column {
+    Column(
+        Modifier.combinedClickable(onClick = onTap, onLongClick = onLongPress),
+    ) {
         Row(
             Modifier
                 .fillMaxWidth()
                 .padding(horizontal = Module.x3, vertical = Module.u + 4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            if (selecting) {
+                Box(
+                    Modifier
+                        .size(20.dp)
+                        .clip(CircleShape)
+                        .background(if (selected) Crimson else colors.surfaceContainerHighest),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    if (selected) {
+                        Text("✓", color = colors.onPrimary, style = MaterialTheme.typography.labelSmall)
+                    }
+                }
+            }
             Column(
-                Modifier.weight(1f),
+                Modifier
+                    .weight(1f)
+                    .padding(start = if (selecting) Module.x2 else 0.dp),
                 verticalArrangement = Arrangement.spacedBy(2.dp),
             ) {
                 Text(
@@ -140,16 +238,11 @@ private fun TrashRow(entry: TrashStore.Entry, working: Boolean, onRestore: (Stri
                     overflow = TextOverflow.Ellipsis,
                 )
                 Text(
-                    text = "from $folder",
+                    text = "from $folder · trashed ${dateOf(entry.trashedAtMillis)}",
                     style = MaterialTheme.typography.bodySmall,
                     color = colors.onSurfaceVariant,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
-                )
-                Text(
-                    text = "trashed ${dateOf(entry.trashedAtMillis)}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = colors.onSurfaceVariant,
                 )
             }
             Column(horizontalAlignment = Alignment.End) {
@@ -158,16 +251,31 @@ private fun TrashRow(entry: TrashStore.Entry, working: Boolean, onRestore: (Stri
                     style = MaterialTheme.typography.bodyLarge,
                     color = colors.onSurface,
                 )
-                TextButton(
-                    onClick = { onRestore(entry.originalPath) },
-                    enabled = !working,
-                    contentPadding = PaddingValues(0.dp),
-                ) {
-                    Text("PUT BACK", style = type.stencil, color = Crimson)
+                if (!selecting) {
+                    TextButton(
+                        onClick = onRestore,
+                        enabled = !working,
+                        contentPadding = PaddingValues(0.dp),
+                    ) {
+                        Text("PUT BACK", style = type.stencil, color = Crimson)
+                    }
                 }
             }
         }
         HorizontalDivider(color = colors.outlineVariant)
+    }
+}
+
+@Composable
+private fun Action(
+    label: String,
+    enabled: Boolean,
+    color: androidx.compose.ui.graphics.Color = Crimson,
+    onClick: () -> Unit,
+) {
+    val type = LocalStationType.current
+    TextButton(onClick = onClick, enabled = enabled, contentPadding = PaddingValues(0.dp)) {
+        Text(label, style = type.stencil, color = if (enabled) color else MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 

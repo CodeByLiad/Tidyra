@@ -73,7 +73,6 @@ fun AppsScreen(
             Column(
                 Modifier.padding(start = Module.x3, end = Module.x3, top = Module.x2, bottom = Module.u),
             ) {
-                Text("Apps", style = type.wordmark, color = colors.onSurface)
                 Text(
                     text = if (hasUsageAccess) {
                         "${Format.count(thirdParty.size, "app")} installed, holding ${Format.size(digital.jinatra.tidyra.core.model.Bytes(thirdParty.sumOf { it.totalBytes.value }))}"
@@ -82,7 +81,6 @@ fun AppsScreen(
                     },
                     style = MaterialTheme.typography.bodyMedium,
                     color = colors.onSurfaceVariant,
-                    modifier = Modifier.padding(top = Module.half),
                 )
             }
             HorizontalDivider(color = colors.outline)

@@ -104,6 +104,26 @@ class TrashStore(private val context: Context) {
 
     suspend fun purgeAll(): Bytes = purgeExpired(retentionDays = 0)
 
+    /** Permanently removes the named items. Irreversible — the caller confirms first. */
+    suspend fun purge(originalPaths: Collection<String>): Bytes = withContext(Dispatchers.IO) {
+        val wanted = originalPaths.toSet()
+        val entries = readManifest()
+        val (targeted, kept) = entries.partition { it.originalPath in wanted }
+
+        var purged = 0L
+        targeted.forEach { entry ->
+            val file = File(entry.trashedPath)
+            if (!file.exists() || file.deleteRecursively()) purged += entry.size.value
+        }
+        writeManifest(kept)
+        Bytes(purged)
+    }
+
+    /** Puts everything back where it came from. Returns how many made it. */
+    suspend fun restoreAll(): Int = withContext(Dispatchers.IO) {
+        readManifest().count { restore(it.originalPath) }
+    }
+
     suspend fun contents(): List<Entry> = withContext(Dispatchers.IO) { readManifest() }
 
     suspend fun size(): Bytes = withContext(Dispatchers.IO) {

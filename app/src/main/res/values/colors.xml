@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="ground">#E8E3D9</color>
+    <color name="ground">#F3EDE3</color>
     <color name="ink">#171614</color>
-    <color name="hi_vis">#FFC400</color>
+    <color name="hi_vis">#D6203F</color>
 </resources>

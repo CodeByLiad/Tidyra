@@ -1,5 +1,10 @@
 package digital.jinatra.tidyra.ui.model
 
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -67,16 +72,9 @@ fun ModelScreen(
         item {
             Column(Modifier.padding(start = Module.x3, end = Module.x3, top = Module.x2, bottom = Module.x2)) {
                 Text(
-                    text = "On-device AI",
-                    style = type.wordmark,
-                    color = colors.onSurface,
-                    modifier = Modifier.semantics { heading() },
-                )
-                Text(
                     text = "Gemma runs on this phone. Your file names, sizes and folders are never uploaded — the download below is the only network request Tidyra ever makes.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = colors.onSurfaceVariant,
-                    modifier = Modifier.padding(top = Module.half),
                 )
             }
             HorizontalDivider(color = colors.outline)
@@ -246,16 +244,52 @@ private fun ModelRow(
                 }
             } else {
                 Row(
-                    Modifier.padding(top = Module.x2),
-                    horizontalArrangement = Arrangement.spacedBy(Module.x3),
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(top = Module.x2),
+                    horizontalArrangement = Arrangement.spacedBy(Module.x2),
                 ) {
-                    when {
-                        entry.installed && isLoaded -> Action("UNLOAD", onUnload, colors.onSurfaceVariant)
-                        entry.installed -> Action(if (loading) "LOADING" else "LOAD", onLoad, Crimson)
-                        incompatible -> Action("NOT SUPPORTED", {}, colors.onSurfaceVariant)
-                        else -> Action("DOWNLOAD", onDownload, Crimson)
+                    val primaryLabel = when {
+                        entry.installed && isLoaded -> "UNLOAD"
+                        entry.installed -> if (loading) "LOADING" else "LOAD"
+                        incompatible -> "NOT SUPPORTED"
+                        else -> "DOWNLOAD"
                     }
-                    if (entry.installed) Action("DELETE", onDelete, colors.onSurfaceVariant)
+                    val primaryAction = when {
+                        entry.installed && isLoaded -> onUnload
+                        entry.installed -> onLoad
+                        incompatible -> ({})
+                        else -> onDownload
+                    }
+                    Button(
+                        onClick = primaryAction,
+                        enabled = !incompatible && !loading,
+                        shape = RoundedCornerShape(Module.half),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = if (isLoaded) colors.surfaceContainerHigh else Crimson,
+                            contentColor = if (isLoaded) colors.onSurface else colors.onPrimary,
+                            disabledContainerColor = colors.surfaceContainerHigh,
+                            disabledContentColor = colors.onSurfaceVariant,
+                        ),
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(52.dp),
+                    ) {
+                        Text(primaryLabel, style = type.amount)
+                    }
+                    if (entry.installed) {
+                        OutlinedButton(
+                            onClick = onDelete,
+                            shape = RoundedCornerShape(Module.half),
+                            border = BorderStroke(1.dp, colors.outline),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = colors.onSurfaceVariant),
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(52.dp),
+                        ) {
+                            Text("DELETE", style = type.amount)
+                        }
+                    }
                 }
                 if (!entry.installed && entry.downloaded.value > 0) {
                     Text(

@@ -32,6 +32,19 @@ object ModelCatalog {
 
     val models = listOf(
         Model(
+            id = "smollm-135m-q8",
+            name = "SmolLM 135M",
+            parameters = "135M, q8",
+            downloadBytes = Bytes(166_754_726),
+            requiredRamGb = 2,
+            multimodal = false,
+            url = "https://huggingface.co/litert-community/SmolLM-135M-Instruct/resolve/main/SmolLM-135M-Instruct_multi-prefill-seq_q8_ekv1280.task",
+            fileName = "SmolLM-135M-Instruct_q8.task",
+            description = "Small and open — no account or token needed. Good for checking that on-device AI works on your phone; its explanations are rougher than Gemma's.",
+            needsHuggingFaceToken = false,
+            licence = "Apache-2.0",
+        ),
+        Model(
             id = "gemma3-1b-it-int4",
             name = "Gemma 3 1B",
             parameters = "1B, int4",

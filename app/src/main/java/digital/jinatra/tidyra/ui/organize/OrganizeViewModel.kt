@@ -14,8 +14,17 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 
+/** One row of the folder's current layout: a subfolder, or the loose files at its root. */
+data class FolderEntry(
+    val name: String,
+    val files: Int,
+    val bytes: digital.jinatra.tidyra.core.model.Bytes,
+    val loose: Boolean = false,
+)
+
 data class OrganizeState(
     val folders: List<File> = emptyList(),
+    val layout: List<FolderEntry> = emptyList(),
     val selected: File? = null,
     val plan: Organizer.Plan? = null,
     val lastResult: Organizer.Result? = null,
@@ -56,8 +65,37 @@ class OrganizeViewModel(app: Application) : AndroidViewModel(app) {
             val plan = withContext(Dispatchers.IO) {
                 organizer.plan(folder, includeOther = _state.value.includeOther)
             }
-            _state.update { it.copy(plan = plan, working = false) }
+            val layout = withContext(Dispatchers.IO) { readLayout(folder) }
+            _state.update { it.copy(plan = plan, layout = layout, working = false) }
         }
+    }
+
+    /**
+     * What the folder actually holds right now: each subfolder with its contents, and
+     * whatever is still loose at the top. Filing is only half the job — being able to see
+     * the result is the other half.
+     */
+    private fun readLayout(folder: File): List<FolderEntry> {
+        val children = folder.listFiles() ?: return emptyList()
+        val rows = ArrayList<FolderEntry>()
+
+        children.filter { it.isDirectory && !it.isHidden }.forEach { dir ->
+            var count = 0
+            var bytes = 0L
+            dir.walkTopDown().forEach { f -> if (f.isFile) { count++; bytes += f.length() } }
+            rows += FolderEntry(dir.name, count, digital.jinatra.tidyra.core.model.Bytes(bytes))
+        }
+
+        val loose = children.filter { it.isFile && !it.name.startsWith(".") }
+        if (loose.isNotEmpty()) {
+            rows += FolderEntry(
+                name = "Loose files",
+                files = loose.size,
+                bytes = digital.jinatra.tidyra.core.model.Bytes(loose.sumOf { it.length() }),
+                loose = true,
+            )
+        }
+        return rows.sortedWith(compareByDescending<FolderEntry> { it.loose }.thenByDescending { it.bytes.value })
     }
 
     /** Nothing moves until this is called, and the result is its own undo record. */

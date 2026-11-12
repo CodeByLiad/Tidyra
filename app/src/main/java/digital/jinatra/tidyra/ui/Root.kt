@@ -1,18 +1,25 @@
 package digital.jinatra.tidyra.ui
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyRow
@@ -31,6 +38,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -97,6 +105,14 @@ fun Root(
     ) {
     Column(Modifier.fillMaxSize()) {
         if (detailOpen) {
+            // A detail screen replaces the masthead, so nothing above it is holding the
+            // status bar clear. The system bars are the system's: the app paints its
+            // background under them and puts nothing else there.
+            Column(
+                Modifier
+                    .weight(1f)
+                    .statusBarsPadding(),
+            ) {
             if (finding != null) {
                 FindingDetailScreen(
                     finding = finding,
@@ -104,7 +120,9 @@ fun Root(
                     onToggleItem = callbacks.onToggleItem,
                     onSelectAll = { all -> callbacks.onToggleFinding(finding.id, all) },
                     onAppAction = callbacks.onUninstall,
-                    aiReady = station.aiReady,
+                    // Read live: the model may have been loaded after this activity resumed,
+                    // and a stale flag would hide the button that uses it.
+                    aiReady = digital.jinatra.tidyra.ai.EngineHolder.isReady,
                     explaining = station.explaining == finding.id,
                     onExplain = { callbacks.onExplain(finding.id) },
                     onBack = { openFinding = null },
@@ -129,6 +147,7 @@ fun Root(
                     modifier = Modifier.weight(1f),
                 )
             }
+            }
             ApprovalFooter(station, callbacks)
             return@Column
         }
@@ -142,7 +161,12 @@ fun Root(
         )
         SectionTabs(section) { section = it }
 
-        Box(Modifier.weight(1f)) {
+        // Lists end above the gesture bar rather than running under it.
+        Box(
+            Modifier
+                .weight(1f)
+                .navigationBarsPadding(),
+        ) {
             when (section) {
                 Section.STORAGE -> StationScreen(
                     state = station,
@@ -179,6 +203,9 @@ fun Root(
                     totalBytes = station.trashBytes,
                     working = station.working,
                     onRestore = callbacks.onRestore,
+                    onRestoreMany = callbacks.onRestoreMany,
+                    onRestoreAll = callbacks.onRestoreAll,
+                    onPurgeMany = callbacks.onPurgeMany,
                     onEmpty = callbacks.onEmptyTrash,
                 )
 
@@ -284,31 +311,59 @@ private fun SectionTabs(current: Section, onSelect: (Section) -> Unit) {
     Column {
         // Five sections do not fit a phone row at a readable size, so the strip scrolls
         // rather than squeezing the labels or wrapping one onto a second line.
-        LazyRow(
-            modifier = Modifier.fillMaxWidth(),
-            contentPadding = PaddingValues(horizontal = Module.x3),
+        // Spread across the full width: the first tab sits on the masthead's left margin
+        // and the last ends on the same margin at the right. Packing them left instead
+        // leaves a band of dead space that reads as a mistake.
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = Module.x3),
+            horizontalArrangement = Arrangement.SpaceBetween,
         ) {
-            items(Section.entries.toList()) { entry ->
+            Section.entries.forEach { entry ->
                 val active = entry == current
                 Column(
                     modifier = Modifier
-                        .clickable { onSelect(entry) }
-                        .padding(horizontal = Module.x2)
+                        // Width comes from the label, so the underline below can fill it
+                        // without the column stretching into the row's spare space.
+                        .width(IntrinsicSize.Min)
+                        // No ripple: a grey box flashing behind a word is the stock
+                        // affordance, and the colour and rule already answer the tap.
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                        ) { onSelect(entry) }
                         .padding(vertical = Module.u + 2.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
+                    // The weight never changes with state: bold text is wider, so an
+                    // active tab would resize and shift every other tab along the row.
+                    // Colour and the underline carry the state, and both ease in.
+                    val tint by animateColorAsState(
+                        targetValue = if (active) Crimson else colors.onSurfaceVariant,
+                        animationSpec = tween(220),
+                        label = "tab-tint",
+                    )
+                    val ruleAlpha by animateFloatAsState(
+                        targetValue = if (active) 1f else 0f,
+                        animationSpec = tween(220),
+                        label = "tab-rule",
+                    )
                     Text(
                         text = entry.label,
                         style = MaterialTheme.typography.bodyLarge,
-                        fontWeight = if (active) FontWeight.Bold else FontWeight.Normal,
-                        color = if (active) Crimson else colors.onSurfaceVariant,
+                        fontWeight = FontWeight.Medium,
+                        color = tint,
                     )
+                    // Always drawn, exactly as wide as its label, and only coloured when
+                    // active. A rule that appears and disappears changes the column's
+                    // width — which is what was shoving the other tabs sideways.
                     Box(
                         Modifier
                             .padding(top = Module.u)
+                            .fillMaxWidth()
                             .height(2.dp)
-                            .width(if (active) 40.dp else 0.dp)
-                            .background(Crimson),
+                            .background(Crimson.copy(alpha = ruleAlpha)),
                     )
                 }
             }
@@ -324,6 +379,9 @@ data class RootCallbacks(
     val onToggleItem: (String, Boolean) -> Unit,
     val onRestore: (String) -> Unit,
     val onEmptyTrash: () -> Unit,
+    val onRestoreMany: (Set<String>) -> Unit,
+    val onRestoreAll: () -> Unit,
+    val onPurgeMany: (Set<String>) -> Unit,
     val onToggleTheme: () -> Unit,
     val onRequestShizuku: () -> Unit,
     val onExplain: (String) -> Unit,
