@@ -8,6 +8,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -51,9 +53,7 @@ fun OrganizeScreen(
     ) {
         item {
             Column(
-                Modifier
-                    .statusBarsPadding()
-                    .padding(start = Module.x3, end = Module.x3, top = Module.x2, bottom = Module.u),
+                Modifier.padding(start = Module.x3, end = Module.x3, top = Module.x2, bottom = Module.u),
             ) {
                 Text("Organise", style = type.wordmark, color = colors.onSurface)
                 Text(
@@ -67,17 +67,18 @@ fun OrganizeScreen(
         }
 
         item {
-            Row(
-                Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = Module.x3, vertical = Module.x2),
+            // A row of five folder names does not fit a phone: it scrolls rather than
+            // wrapping a chip onto two lines or dropping the last one off the edge.
+            LazyRow(
+                modifier = Modifier.fillMaxWidth(),
+                contentPadding = PaddingValues(horizontal = Module.x3, vertical = Module.x2),
                 horizontalArrangement = Arrangement.spacedBy(Module.u),
             ) {
-                state.folders.forEach { folder ->
+                items(state.folders) { folder ->
                     FilterChip(
                         selected = state.selected == folder,
                         onClick = { onSelect(folder) },
-                        label = { Text(folder.name) },
+                        label = { Text(folder.name, maxLines = 1) },
                         shape = RoundedCornerShape(Module.half),
                         colors = FilterChipDefaults.filterChipColors(
                             selectedContainerColor = Crimson,

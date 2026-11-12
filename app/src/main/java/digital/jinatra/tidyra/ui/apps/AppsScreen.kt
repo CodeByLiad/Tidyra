@@ -71,9 +71,7 @@ fun AppsScreen(
     ) {
         item {
             Column(
-                Modifier
-                    .statusBarsPadding()
-                    .padding(start = Module.x3, end = Module.x3, top = Module.x2, bottom = Module.u),
+                Modifier.padding(start = Module.x3, end = Module.x3, top = Module.x2, bottom = Module.u),
             ) {
                 Text("Apps", style = type.wordmark, color = colors.onSurface)
                 Text(

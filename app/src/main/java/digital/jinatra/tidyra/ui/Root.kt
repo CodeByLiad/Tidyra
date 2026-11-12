@@ -8,12 +8,15 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.HorizontalDivider
@@ -43,6 +46,7 @@ import digital.jinatra.tidyra.ui.organize.OrganizeState
 import digital.jinatra.tidyra.ui.station.ApprovalBar
 import digital.jinatra.tidyra.ui.station.StationScreen
 import digital.jinatra.tidyra.ui.station.StationState
+import digital.jinatra.tidyra.ui.trash.TrashScreen
 import digital.jinatra.tidyra.ui.theme.Crimson
 import digital.jinatra.tidyra.ui.theme.LocalStationType
 import digital.jinatra.tidyra.ui.theme.Module
@@ -51,6 +55,7 @@ enum class Section(val label: String) {
     STORAGE("Storage"),
     APPS("Apps"),
     ORGANISE("Organise"),
+    TRASH("Trash"),
     AI("AI"),
 }
 
@@ -65,6 +70,7 @@ fun Root(
     station: StationState,
     organize: OrganizeState,
     model: ModelState,
+    darkTheme: Boolean,
     callbacks: RootCallbacks,
 ) {
     var section by remember { mutableStateOf(Section.STORAGE) }
@@ -97,6 +103,10 @@ fun Root(
                     selectedItems = station.selectedItems,
                     onToggleItem = callbacks.onToggleItem,
                     onSelectAll = { all -> callbacks.onToggleFinding(finding.id, all) },
+                    onAppAction = callbacks.onUninstall,
+                    aiReady = station.aiReady,
+                    explaining = station.explaining == finding.id,
+                    onExplain = { callbacks.onExplain(finding.id) },
                     onBack = { openFinding = null },
                     modifier = Modifier.weight(1f),
                 )
@@ -126,7 +136,9 @@ fun Root(
         Masthead(
             scanning = station.scanning,
             scanned = !station.snapshot?.byCategory.isNullOrEmpty(),
+            darkTheme = darkTheme,
             onScan = callbacks.onScan,
+            onToggleTheme = callbacks.onToggleTheme,
         )
         SectionTabs(section) { section = it }
 
@@ -139,6 +151,7 @@ fun Root(
                     onApprove = callbacks.onApprove,
                     onGrantAllFiles = callbacks.onGrantAllFiles,
                     onGrantUsage = callbacks.onGrantUsage,
+                    onRequestShizuku = callbacks.onRequestShizuku,
                     onOpenFinding = { openFinding = it },
                     onOpenCategory = { openCategory = it },
                     listState = storageScroll,
@@ -159,6 +172,14 @@ fun Root(
                     onSelect = callbacks.onSelectFolder,
                     onApply = callbacks.onApplyOrganise,
                     onUndo = callbacks.onUndoOrganise,
+                )
+
+                Section.TRASH -> TrashScreen(
+                    entries = station.trashEntries,
+                    totalBytes = station.trashBytes,
+                    working = station.working,
+                    onRestore = callbacks.onRestore,
+                    onEmpty = callbacks.onEmptyTrash,
                 )
 
                 Section.AI -> ModelScreen(
@@ -216,7 +237,13 @@ private fun ApprovalFooter(station: StationState, callbacks: RootCallbacks) {
 }
 
 @Composable
-private fun Masthead(scanning: Boolean, scanned: Boolean, onScan: () -> Unit) {
+private fun Masthead(
+    scanning: Boolean,
+    scanned: Boolean,
+    darkTheme: Boolean,
+    onScan: () -> Unit,
+    onToggleTheme: () -> Unit,
+) {
     val type = LocalStationType.current
     val colors = MaterialTheme.colorScheme
     Row(
@@ -234,6 +261,13 @@ private fun Masthead(scanning: Boolean, scanned: Boolean, onScan: () -> Unit) {
                 .weight(1f)
                 .semantics { heading() },
         )
+        TextButton(onClick = onToggleTheme) {
+            Text(
+                text = if (darkTheme) "LIGHT" else "DARK",
+                style = type.stencil,
+                color = colors.onSurfaceVariant,
+            )
+        }
         TextButton(onClick = onScan, enabled = !scanning) {
             Text(
                 text = if (scanning) "SCANNING" else if (scanned) "RESCAN" else "SCAN",
@@ -248,13 +282,18 @@ private fun Masthead(scanning: Boolean, scanned: Boolean, onScan: () -> Unit) {
 private fun SectionTabs(current: Section, onSelect: (Section) -> Unit) {
     val colors = MaterialTheme.colorScheme
     Column {
-        Row(Modifier.fillMaxWidth().padding(horizontal = Module.x3)) {
-            Section.entries.forEach { entry ->
+        // Five sections do not fit a phone row at a readable size, so the strip scrolls
+        // rather than squeezing the labels or wrapping one onto a second line.
+        LazyRow(
+            modifier = Modifier.fillMaxWidth(),
+            contentPadding = PaddingValues(horizontal = Module.x3),
+        ) {
+            items(Section.entries.toList()) { entry ->
                 val active = entry == current
                 Column(
                     modifier = Modifier
-                        .weight(1f)
                         .clickable { onSelect(entry) }
+                        .padding(horizontal = Module.x2)
                         .padding(vertical = Module.u + 2.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
@@ -283,6 +322,11 @@ data class RootCallbacks(
     val onScan: () -> Unit,
     val onToggleFinding: (String, Boolean) -> Unit,
     val onToggleItem: (String, Boolean) -> Unit,
+    val onRestore: (String) -> Unit,
+    val onEmptyTrash: () -> Unit,
+    val onToggleTheme: () -> Unit,
+    val onRequestShizuku: () -> Unit,
+    val onExplain: (String) -> Unit,
     val onApprove: () -> Unit,
     val onGrantAllFiles: () -> Unit,
     val onGrantUsage: () -> Unit,

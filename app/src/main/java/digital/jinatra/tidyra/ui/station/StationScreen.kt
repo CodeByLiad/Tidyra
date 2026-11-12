@@ -48,6 +48,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import digital.jinatra.tidyra.core.model.Bytes
 import digital.jinatra.tidyra.core.model.Finding
+import digital.jinatra.tidyra.core.model.FindingKind
 import digital.jinatra.tidyra.core.model.Risk
 import digital.jinatra.tidyra.core.model.StorageCategory
 import digital.jinatra.tidyra.core.shizuku.ShizukuBridge
@@ -75,6 +76,7 @@ fun StationScreen(
     onApprove: () -> Unit,
     onGrantAllFiles: () -> Unit,
     onGrantUsage: () -> Unit,
+    onRequestShizuku: () -> Unit = {},
     onOpenFinding: (String) -> Unit,
     onOpenCategory: (StorageCategory) -> Unit = {},
     listState: androidx.compose.foundation.lazy.LazyListState = androidx.compose.foundation.lazy.rememberLazyListState(),
@@ -124,11 +126,21 @@ fun StationScreen(
                 }
                 if (state.shizuku != ShizukuBridge.State.READY && state.hasAllFilesAccess) {
                     item {
-                        Notice(
-                            "Cache clearing needs Shizuku",
-                            "Android does not let an ordinary app clear another app's cache. With Shizuku paired, Tidyra does it in one tap; without it, it sends you to each app's storage screen.",
-                            null, {}, colors.outline,
-                        )
+                        when (state.shizuku) {
+                            // Shizuku is running and just needs to be told Tidyra may use
+                            // it. Saying so without offering the prompt would be a dead end.
+                            ShizukuBridge.State.NOT_PERMITTED -> Notice(
+                                "Shizuku is running — allow Tidyra to use it",
+                                "That unlocks real cache clearing, reading inside Android/data, and uninstalling without a dialog for every app.",
+                                "Allow Tidyra", onRequestShizuku, Amber,
+                            )
+
+                            else -> Notice(
+                                "Cache clearing needs Shizuku",
+                                "Android does not let an ordinary app clear another app's cache. With Shizuku paired, Tidyra does it in one tap; without it, it sends you to each app's storage screen.",
+                                null, {}, colors.outline,
+                            )
+                        }
                     }
                 }
             }
@@ -400,8 +412,15 @@ private fun FindingRow(
                 .padding(horizontal = Module.x3, vertical = Module.x2),
             verticalAlignment = Alignment.Top,
         ) {
-            Box(Modifier.clickable { onToggle(selection != StationState.Selection.ALL) }) {
-                SelectionDot(selection)
+            val appFinding = finding.kind == FindingKind.UNUSED_APP ||
+                finding.kind == FindingKind.APP_CACHE
+            if (appFinding) {
+                // No tick: these are uninstalled or cleared one at a time, never trashed.
+                Text("\u2192", style = MaterialTheme.typography.titleLarge, color = colors.onSurfaceVariant)
+            } else {
+                Box(Modifier.clickable { onToggle(selection != StationState.Selection.ALL) }) {
+                    SelectionDot(selection)
+                }
             }
             Column(Modifier.weight(1f).padding(start = Module.x2)) {
                 Text(finding.title, style = MaterialTheme.typography.titleLarge, color = colors.onSurface)

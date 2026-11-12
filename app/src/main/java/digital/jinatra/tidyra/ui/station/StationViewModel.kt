@@ -5,6 +5,7 @@ import android.os.Build
 import android.os.Environment
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import digital.jinatra.tidyra.ai.EngineHolder
 import digital.jinatra.tidyra.core.model.ActionPlan
 import digital.jinatra.tidyra.core.model.Bytes
 import digital.jinatra.tidyra.core.model.CleanupResult
@@ -41,8 +42,11 @@ data class StationState(
     val hasUsageAccess: Boolean = false,
     val shizuku: ShizukuBridge.State = ShizukuBridge.State.UNAVAILABLE,
     val trashBytes: Bytes = Bytes.ZERO,
+    val trashEntries: List<digital.jinatra.tidyra.core.trash.TrashStore.Entry> = emptyList(),
     val lastResult: CleanupResult? = null,
     val working: Boolean = false,
+    val explaining: String? = null,
+    val aiReady: Boolean = false,
 ) {
     val plan: ActionPlan
         get() {
@@ -91,7 +95,7 @@ class StationViewModel(app: Application) : AndroidViewModel(app) {
         // Capacity and free space come from StatFs, which needs no permission at all.
         // Showing "0 B free of 0 B" until a scan runs would be a lie the app can avoid.
         _state.update { it.copy(snapshot = capacityOnly()) }
-        viewModelScope.launch { _state.update { it.copy(trashBytes = trash.size()) } }
+        refreshTrash()
     }
 
     private fun capacityOnly(): StorageSnapshot {
@@ -104,12 +108,72 @@ class StationViewModel(app: Application) : AndroidViewModel(app) {
         )
     }
 
+    /**
+     * Asks the on-device model to explain one finding in plain language.
+     *
+     * It is given facts and nothing else, and its answer is advisory: it never changes
+     * what is proposed, what is selected, or what gets removed.
+     */
+    fun explain(findingId: String) {
+        val finding = _state.value.findings.firstOrNull { it.id == findingId } ?: return
+        if (!EngineHolder.isReady) return
+
+        viewModelScope.launch {
+            _state.update { it.copy(explaining = findingId) }
+            val answer = EngineHolder.engine(getApplication()).complete(promptFor(finding))
+            val note = answer.getOrElse { error -> "Gemma could not answer: " + (error.message ?: "unknown error") }
+            _state.update { current ->
+                current.copy(
+                    explaining = null,
+                    findings = current.findings.map {
+                        if (it.id == findingId) it.copy(aiNote = note.trim()) else it
+                    },
+                )
+            }
+        }
+    }
+
+    private fun promptFor(finding: Finding): String {
+        val sample = finding.items.take(8).joinToString("\n") { item ->
+            "- " + (item.label ?: item.path) + " (" + item.size.value + " bytes)"
+        }
+        return buildString {
+            appendLine("A storage scan on this phone produced this finding.")
+            appendLine("Title: " + finding.title)
+            appendLine("Description: " + finding.detail)
+            appendLine("Items: " + finding.items.size)
+            appendLine("Total size: " + finding.frees.value + " bytes")
+            appendLine("Risk level recorded by the app: " + finding.risk.name)
+            appendLine("A sample of the items:")
+            appendLine(sample)
+            appendLine()
+            append("In two sentences: what are these, and what would the person lose by removing them?")
+        }
+    }
+
+    fun refreshTrash() {
+        viewModelScope.launch {
+            _state.update { it.copy(trashBytes = trash.size(), trashEntries = trash.contents()) }
+        }
+    }
+
+    /** Puts one trashed file back where it came from. This is what makes deleting safe. */
+    fun restore(originalPath: String) {
+        viewModelScope.launch {
+            _state.update { it.copy(working = true) }
+            trash.restore(originalPath)
+            _state.update { it.copy(working = false) }
+            refreshTrash()
+        }
+    }
+
     fun refreshPermissions() {
         _state.update {
             it.copy(
                 hasAllFilesAccess = hasAllFilesAccess(),
                 hasUsageAccess = inventory.hasUsageAccess(),
                 shizuku = shizuku.state(),
+                aiReady = EngineHolder.isReady,
             )
         }
     }
@@ -170,7 +234,6 @@ class StationViewModel(app: Application) : AndroidViewModel(app) {
                                 }
                         },
                     containers = buildContainers(result.snapshot, apps, findings, it.selectedItems),
-                    trashBytes = trash.size(),
                 )
             }
         }
@@ -225,9 +288,9 @@ class StationViewModel(app: Application) : AndroidViewModel(app) {
                     working = false,
                     lastResult = result,
                     selectedItems = emptySet(),
-                    trashBytes = trash.size(),
                 )
             }
+            refreshTrash()
             scan()
         }
     }
@@ -246,7 +309,8 @@ class StationViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             _state.update { it.copy(working = true) }
             trash.purgeAll()
-            _state.update { it.copy(working = false, trashBytes = trash.size()) }
+            _state.update { it.copy(working = false) }
+            refreshTrash()
         }
     }
 

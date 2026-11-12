@@ -1,47 +1,49 @@
 package digital.jinatra.tidyra.ui.model
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import digital.jinatra.tidyra.ai.ModelCatalog
 import digital.jinatra.tidyra.ui.format.Format
-import digital.jinatra.tidyra.ui.theme.Olive
 import digital.jinatra.tidyra.ui.theme.Crimson
-import digital.jinatra.tidyra.ui.theme.Crimson
-import digital.jinatra.tidyra.ui.theme.Paper
 import digital.jinatra.tidyra.ui.theme.LocalStationType
-import digital.jinatra.tidyra.ui.theme.Muted
 import digital.jinatra.tidyra.ui.theme.Module
+import digital.jinatra.tidyra.ui.theme.Olive
 
 /**
- * The model depot.
+ * The model depot, set like the rest of the paper: serif names, hairline rules, one
+ * crimson accent, no boxes.
  *
- * Nothing here is required: every screen in Tidyra works with no model installed. What a
- * model adds is explanation — why a finding is what it is, in plain language, computed on
- * this phone and never sent anywhere.
+ * Nothing here is required — every screen in Tidyra works with no model installed. What a
+ * model adds is explanation, computed on this phone and sent nowhere.
  */
 @Composable
 fun ModelScreen(
@@ -56,71 +58,96 @@ fun ModelScreen(
     modifier: Modifier = Modifier,
 ) {
     val type = LocalStationType.current
+    val colors = MaterialTheme.colorScheme
 
     LazyColumn(
         modifier = modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(Module.u),
-        contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 96.dp),
+        contentPadding = PaddingValues(bottom = Module.x4),
     ) {
         item {
-            Column(
-                Modifier
-                    .fillMaxWidth()
-                    .background(MaterialTheme.colorScheme.surfaceContainer)
-                    .padding(Module.x2),
-            ) {
-                Text("ON-DEVICE AI", style = type.wordmark, color = MaterialTheme.colorScheme.onSurface)
+            Column(Modifier.padding(start = Module.x3, end = Module.x3, top = Module.x2, bottom = Module.x2)) {
+                Text(
+                    text = "On-device AI",
+                    style = type.wordmark,
+                    color = colors.onSurface,
+                    modifier = Modifier.semantics { heading() },
+                )
                 Text(
                     text = "Gemma runs on this phone. Your file names, sizes and folders are never uploaded — the download below is the only network request Tidyra ever makes.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = Module.u),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = colors.onSurfaceVariant,
+                    modifier = Modifier.padding(top = Module.half),
                 )
             }
+            HorizontalDivider(color = colors.outline)
         }
 
         items(state.entries, key = { it.model.id }) { entry ->
             ModelRow(
                 entry = entry,
+                isLoaded = state.loadedModelPath?.endsWith(entry.model.fileName) == true,
+                loading = state.loading,
                 onDownload = { onDownload(entry.model) },
                 onCancel = onCancel,
                 onDelete = { onDelete(entry.model) },
                 onLoad = { onLoad(entry.model) },
                 onUnload = onUnload,
-                isLoaded = state.loadedModelPath?.endsWith(entry.model.fileName) == true,
             )
         }
 
         item {
-            Column(Modifier.padding(horizontal = Module.x2)) {
-                Text("HUGGING FACE TOKEN", style = type.stencil, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Column(Modifier.padding(horizontal = Module.x3, vertical = Module.x2)) {
                 Text(
-                    text = "Google serves Gemma behind a licence you accept on huggingface.co. Paste a read token here; it is stored on this device and sent only to huggingface.co.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = Module.half, bottom = Module.u),
+                    text = "Hugging Face token",
+                    style = type.section,
+                    color = colors.onSurface,
+                    modifier = Modifier.semantics { heading() },
+                )
+                Text(
+                    text = "Google serves Gemma behind a licence you accept on huggingface.co. Paste a read token; it stays on this device and is sent only to huggingface.co.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = colors.onSurfaceVariant,
+                    modifier = Modifier.padding(top = Module.half, bottom = Module.x2),
                 )
                 OutlinedTextField(
                     value = state.token,
                     onValueChange = onToken,
-                    label = { Text("hf_…") },
+                    placeholder = { Text("hf_...", color = colors.onSurfaceVariant) },
                     singleLine = true,
                     visualTransformation = PasswordVisualTransformation(),
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                    colors = TextFieldDefaults.colors(
+                        focusedContainerColor = Color.Transparent,
+                        unfocusedContainerColor = Color.Transparent,
+                        focusedIndicatorColor = Crimson,
+                        unfocusedIndicatorColor = colors.outline,
+                    ),
                     modifier = Modifier.fillMaxWidth(),
                 )
-                TextButton(onClick = onImport, modifier = Modifier.padding(top = Module.half)) {
-                    Text("Or import a .task file you already have")
+                TextButton(
+                    onClick = onImport,
+                    contentPadding = PaddingValues(0.dp),
+                    modifier = Modifier.padding(top = Module.u),
+                ) {
+                    Text("IMPORT A .TASK FILE INSTEAD", style = type.stencil, color = Crimson)
                 }
+                Text(
+                    text = "Models live in ${ModelCatalog.SHARED_DIR} when Tidyra has all-files access, so one download serves every Jinatra app on this phone.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = colors.onSurfaceVariant,
+                    modifier = Modifier.padding(top = Module.x2),
+                )
             }
         }
 
         state.message?.let { message ->
             item {
+                HorizontalDivider(color = colors.outline)
                 Text(
                     text = message,
                     style = MaterialTheme.typography.bodyMedium,
-                    modifier = Modifier.padding(horizontal = Module.x2),
+                    color = colors.onSurface,
+                    modifier = Modifier.padding(horizontal = Module.x3, vertical = Module.x2),
                 )
             }
         }
@@ -131,6 +158,7 @@ fun ModelScreen(
 private fun ModelRow(
     entry: ModelState.Entry,
     isLoaded: Boolean,
+    loading: Boolean,
     onDownload: () -> Unit,
     onCancel: () -> Unit,
     onDelete: () -> Unit,
@@ -138,60 +166,55 @@ private fun ModelRow(
     onUnload: () -> Unit,
 ) {
     val type = LocalStationType.current
+    val colors = MaterialTheme.colorScheme
     val incompatible = entry.compatibility != ModelCatalog.Compatibility.SUPPORTED
 
-    Column(
-        Modifier
-            .padding(horizontal = Module.x2)
-            .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.surfaceContainer)
-            .border(1.dp, MaterialTheme.colorScheme.outline),
-    ) {
-        Box(
-            Modifier
-                .fillMaxWidth()
-                .height(4.dp)
-                .background(
-                    when {
-                        isLoaded -> Olive
-                        incompatible -> Muted
-                        entry.installed -> Crimson
-                        else -> MaterialTheme.colorScheme.outline
-                    },
-                ),
-        )
-        Column(Modifier.padding(Module.x2)) {
+    Column {
+        Column(Modifier.padding(horizontal = Module.x3, vertical = Module.x2)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text(entry.model.name, style = MaterialTheme.typography.titleMedium)
-                    Text(
-                        text = "${entry.model.parameters} · ${Format.size(entry.model.downloadBytes)}" +
-                            if (entry.model.multimodal) " · can read images" else "",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
+                Text(
+                    text = entry.model.name,
+                    style = type.section,
+                    color = if (incompatible) colors.onSurfaceVariant else colors.onSurface,
+                    modifier = Modifier.weight(1f),
+                )
                 if (isLoaded) {
-                    Text("RUNNING", style = type.stencil, color = Olive)
+                    Box(Modifier.size(6.dp).clip(CircleShape).background(Olive))
+                    Text(
+                        text = "RUNNING",
+                        style = type.stencil,
+                        color = Olive,
+                        modifier = Modifier.padding(start = Module.u),
+                    )
                 }
             }
 
             Text(
-                text = entry.model.description,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                text = buildString {
+                    append(entry.model.parameters)
+                    append(" | ")
+                    append(Format.size(entry.model.downloadBytes))
+                    if (entry.model.multimodal) append(" | reads images")
+                    if (entry.installed) append(" | installed")
+                },
+                style = type.stencil,
+                color = colors.onSurfaceVariant,
                 modifier = Modifier.padding(top = Module.half),
+            )
+
+            Text(
+                text = entry.model.description,
+                style = MaterialTheme.typography.bodyMedium,
+                color = colors.onSurfaceVariant,
+                modifier = Modifier.padding(top = Module.u),
             )
 
             when (entry.compatibility) {
                 ModelCatalog.Compatibility.LOW_MEMORY -> Reason(
-                    "This phone has less RAM than this model needs (${entry.model.requiredRamGb} GB). It would load, then be killed.",
+                    "This phone has less memory than this model needs (${entry.model.requiredRamGb} GB). It would load, then be killed.",
                 )
 
-                ModelCatalog.Compatibility.UNSUPPORTED_ABI -> Reason(
-                    "This model needs a 64-bit processor.",
-                )
-
+                ModelCatalog.Compatibility.UNSUPPORTED_ABI -> Reason("This model needs a 64-bit processor.")
                 ModelCatalog.Compatibility.SUPPORTED -> Unit
             }
 
@@ -200,61 +223,46 @@ private fun ModelRow(
                     progress = { entry.progress },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(top = Module.u),
+                        .padding(top = Module.x2)
+                        .height(2.dp),
                     color = Crimson,
-                    trackColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+                    trackColor = colors.surfaceContainerHighest,
                 )
                 Row(
-                    modifier = Modifier
+                    Modifier
                         .fillMaxWidth()
-                        .padding(top = Module.half),
+                        .padding(top = Module.u),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(
-                        text = "${Format.size(entry.downloaded)} of ${Format.size(entry.model.downloadBytes)}",
+                        text = "${Format.size(entry.downloaded)} of ${Format.size(entry.model.downloadBytes)} — stopping keeps what arrived",
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = colors.onSurfaceVariant,
                         modifier = Modifier.weight(1f),
                     )
-                    TextButton(onClick = onCancel) { Text("Stop") }
+                    TextButton(onClick = onCancel, contentPadding = PaddingValues(0.dp)) {
+                        Text("STOP", style = type.stencil, color = Crimson)
+                    }
                 }
-                Text(
-                    text = "Stopping keeps what has arrived; it resumes from there.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
             } else {
                 Row(
-                    modifier = Modifier.padding(top = Module.u),
-                    horizontalArrangement = Arrangement.spacedBy(Module.u),
+                    Modifier.padding(top = Module.x2),
+                    horizontalArrangement = Arrangement.spacedBy(Module.x3),
                 ) {
                     when {
-                        entry.installed && isLoaded ->
-                            OutlinedButton(onClick = onUnload) { Text("Unload") }
-
-                        entry.installed ->
-                            Button(
-                                onClick = onLoad,
-                                colors = ButtonDefaults.buttonColors(containerColor = Crimson, contentColor = MaterialTheme.colorScheme.onPrimary),
-                            ) { Text("Load") }
-
-                        else ->
-                            Button(
-                                onClick = onDownload,
-                                enabled = !incompatible,
-                                colors = ButtonDefaults.buttonColors(containerColor = Crimson, contentColor = MaterialTheme.colorScheme.onPrimary),
-                            ) { Text("Download") }
+                        entry.installed && isLoaded -> Action("UNLOAD", onUnload, colors.onSurfaceVariant)
+                        entry.installed -> Action(if (loading) "LOADING" else "LOAD", onLoad, Crimson)
+                        incompatible -> Action("NOT SUPPORTED", {}, colors.onSurfaceVariant)
+                        else -> Action("DOWNLOAD", onDownload, Crimson)
                     }
-                    if (entry.installed) {
-                        OutlinedButton(onClick = onDelete) { Text("Delete") }
-                    }
+                    if (entry.installed) Action("DELETE", onDelete, colors.onSurfaceVariant)
                 }
                 if (!entry.installed && entry.downloaded.value > 0) {
                     Text(
-                        text = "${Format.size(entry.downloaded)} already downloaded — it will resume.",
+                        text = "${Format.size(entry.downloaded)} already downloaded — it resumes from there.",
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(top = Module.half),
+                        color = colors.onSurfaceVariant,
+                        modifier = Modifier.padding(top = Module.u),
                     )
                 }
             }
@@ -263,20 +271,29 @@ private fun ModelRow(
 
             Text(
                 text = "Licence: ${entry.model.licence}",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(top = Module.u),
+                style = MaterialTheme.typography.bodySmall,
+                color = colors.onSurfaceVariant,
+                modifier = Modifier.padding(top = Module.x2),
             )
         }
+        HorizontalDivider(color = colors.outline)
     }
 }
 
 @Composable
-private fun Reason(text: String, color: androidx.compose.ui.graphics.Color = MaterialTheme.colorScheme.onSurfaceVariant) {
+private fun Action(label: String, onClick: () -> Unit, color: Color) {
+    val type = LocalStationType.current
+    TextButton(onClick = onClick, contentPadding = PaddingValues(0.dp)) {
+        Text(label, style = type.stencil, color = color)
+    }
+}
+
+@Composable
+private fun Reason(text: String, color: Color = MaterialTheme.colorScheme.onSurfaceVariant) {
     Text(
         text = text,
         style = MaterialTheme.typography.bodySmall,
         color = color,
-        modifier = Modifier.padding(top = Module.half),
+        modifier = Modifier.padding(top = Module.u),
     )
 }

@@ -10,7 +10,11 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import digital.jinatra.tidyra.ui.model.ModelViewModel
 import digital.jinatra.tidyra.ui.organize.OrganizeViewModel
@@ -35,7 +39,10 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
 
         setContent {
-            TidyraTheme {
+            var dark by rememberSaveable { mutableStateOf<Boolean?>(null) }
+            val isDark = dark ?: isSystemInDarkTheme()
+
+            TidyraTheme(darkTheme = isDark) {
                 val station by stationModel.state.collectAsStateWithLifecycle()
                 val organize by organizeModel.state.collectAsStateWithLifecycle()
                 val ai by aiModel.state.collectAsStateWithLifecycle()
@@ -44,10 +51,16 @@ class MainActivity : ComponentActivity() {
                     station = station,
                     organize = organize,
                     model = ai,
+                    darkTheme = isDark,
                     callbacks = RootCallbacks(
                         onScan = stationModel::scan,
                         onToggleFinding = stationModel::toggleFinding,
                         onToggleItem = stationModel::toggleItem,
+                        onRestore = stationModel::restore,
+                        onEmptyTrash = stationModel::emptyTrash,
+                        onToggleTheme = { dark = !isDark },
+                        onRequestShizuku = ::requestShizuku,
+                        onExplain = stationModel::explain,
                         onApprove = stationModel::applyPlan,
                         onGrantAllFiles = ::requestAllFilesAccess,
                         onGrantUsage = ::requestUsageAccess,
@@ -68,6 +81,24 @@ class MainActivity : ComponentActivity() {
                 )
             }
         }
+    }
+
+    /**
+     * Shizuku grants permission through its own app, and answers asynchronously. Without
+     * this listener the app would keep showing "allow Tidyra" after the user already had.
+     */
+    private val shizukuListener = rikka.shizuku.Shizuku.OnRequestPermissionResultListener { _, _ ->
+        stationModel.refreshPermissions()
+    }
+
+    private fun requestShizuku() {
+        stationModel.shizuku.addPermissionListener(shizukuListener)
+        stationModel.shizuku.requestPermission(SHIZUKU_REQUEST)
+    }
+
+    override fun onDestroy() {
+        stationModel.shizuku.removePermissionListener(shizukuListener)
+        super.onDestroy()
     }
 
     override fun onResume() {
@@ -100,6 +131,10 @@ class MainActivity : ComponentActivity() {
                 Intent(Intent.ACTION_DELETE, Uri.parse("package:$packageName")),
             )
         }
+    }
+
+    private companion object {
+        const val SHIZUKU_REQUEST = 4001
     }
 
     private fun openAppSettings(packageName: String) {

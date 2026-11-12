@@ -29,6 +29,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import digital.jinatra.tidyra.core.model.Bytes
 import digital.jinatra.tidyra.core.model.Finding
+import digital.jinatra.tidyra.core.model.FindingKind
 import digital.jinatra.tidyra.core.model.Risk
 import digital.jinatra.tidyra.ui.common.AppIcon
 import digital.jinatra.tidyra.ui.format.Format
@@ -55,11 +56,18 @@ fun FindingDetailScreen(
     selectedItems: Set<String>,
     onToggleItem: (String, Boolean) -> Unit,
     onSelectAll: (Boolean) -> Unit,
+    onAppAction: (String) -> Unit = {},
+    aiReady: Boolean = false,
+    explaining: Boolean = false,
+    onExplain: () -> Unit = {},
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val type = LocalStationType.current
     val colors = MaterialTheme.colorScheme
+    // Apps cannot be moved to a trash folder: Android uninstalls them through its own
+    // dialog. A tick here would promise an action the approval bar cannot carry out.
+    val appFinding = finding.kind == FindingKind.UNUSED_APP || finding.kind == FindingKind.APP_CACHE
     val chosen = finding.items.filter { it.path in selectedItems }
     val chosenBytes = Bytes(chosen.sumOf { it.size.value })
     val allSelected = chosen.size == finding.items.size
@@ -76,9 +84,7 @@ fun FindingDetailScreen(
     ) {
         item {
             Column(
-                Modifier
-                    .statusBarsPadding()
-                    .padding(start = Module.x3, end = Module.x3, top = Module.x2),
+                Modifier.padding(start = Module.x3, end = Module.x3, top = Module.x2),
             ) {
                 TextButton(onClick = onBack, contentPadding = PaddingValues(0.dp)) {
                     Text("← BACK", style = type.stencil, color = Crimson)
@@ -117,8 +123,53 @@ fun FindingDetailScreen(
             HorizontalDivider(color = colors.outline)
         }
 
+        if (aiReady || finding.aiNote != null) {
+            item {
+                Column(Modifier.padding(horizontal = Module.x3, vertical = Module.x2)) {
+                    if (finding.aiNote != null) {
+                        Text(
+                            text = finding.aiNote,
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = colors.onSurface,
+                        )
+                        Text(
+                            text = "GEMMA, ON THIS PHONE - ADVISORY ONLY",
+                            style = type.stencil,
+                            color = colors.onSurfaceVariant,
+                            modifier = Modifier.padding(top = Module.u),
+                        )
+                    } else {
+                        TextButton(
+                            onClick = onExplain,
+                            enabled = !explaining,
+                            contentPadding = PaddingValues(0.dp),
+                        ) {
+                            Text(
+                                text = if (explaining) "ASKING GEMMA" else "ASK GEMMA WHAT THESE ARE",
+                                style = type.stencil,
+                                color = Crimson,
+                            )
+                        }
+                    }
+                }
+                HorizontalDivider(color = colors.outline)
+            }
+        }
+
+        if (appFinding) {
+            item {
+                Text(
+                    text = "These are apps, not files. Android uninstalls them through its own dialog, one at a time, so each row below acts on its own.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = colors.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = Module.x3, vertical = Module.x2),
+                )
+                HorizontalDivider(color = colors.outline)
+            }
+        }
+
         // The running total, the thing the user is actually deciding about.
-        item {
+        if (!appFinding) item {
             Row(
                 Modifier
                     .fillMaxWidth()
@@ -148,7 +199,12 @@ fun FindingDetailScreen(
             ItemRow(
                 item = item,
                 selected = item.path in selectedItems,
-                onToggle = { onToggleItem(item.path, it) },
+                onToggle = if (appFinding) null else ({ picked: Boolean -> onToggleItem(item.path, picked) }),
+                action = if (finding.kind == FindingKind.UNUSED_APP) {
+                    "UNINSTALL" to { onAppAction(item.packageName ?: item.path) }
+                } else {
+                    null
+                },
             )
         }
     }
@@ -172,9 +228,7 @@ fun CategoryDetailScreen(
     ) {
         item {
             Column(
-                Modifier
-                    .statusBarsPadding()
-                    .padding(start = Module.x3, end = Module.x3, top = Module.x2, bottom = Module.x2),
+                Modifier.padding(start = Module.x3, end = Module.x3, top = Module.x2, bottom = Module.x2),
             ) {
                 TextButton(onClick = onBack, contentPadding = PaddingValues(0.dp)) {
                     Text("← BACK", style = type.stencil, color = Crimson)
@@ -212,7 +266,9 @@ private fun ItemRow(
     item: Finding.Item,
     selected: Boolean,
     onToggle: ((Boolean) -> Unit)?,
+    action: Pair<String, () -> Unit>? = null,
 ) {
+    val type = LocalStationType.current
     val colors = MaterialTheme.colorScheme
     val name = item.label ?: item.path.substringAfterLast('/')
     val folder = if (item.label != null) item.path
@@ -282,11 +338,17 @@ private fun ItemRow(
                     style = MaterialTheme.typography.bodyLarge,
                     color = colors.onSurface,
                 )
-                Text(
-                    text = dateOf(item.lastModifiedMillis),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = colors.onSurfaceVariant,
-                )
+                if (action != null) {
+                    TextButton(onClick = action.second, contentPadding = PaddingValues(0.dp)) {
+                        Text(action.first, style = type.stencil, color = Crimson)
+                    }
+                } else {
+                    Text(
+                        text = dateOf(item.lastModifiedMillis),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = colors.onSurfaceVariant,
+                    )
+                }
             }
         }
         HorizontalDivider(color = colors.outlineVariant)
@@ -296,6 +358,6 @@ private fun ItemRow(
 private val formatter = SimpleDateFormat("d MMM yyyy", Locale.getDefault())
 
 private fun dateOf(millis: Long): String =
-    if (millis <= 0) "" else formatter.format(Date(millis))
+    if (millis <= 0) "never opened" else formatter.format(Date(millis))
 
 private fun unusedColor(): Color = Color.Unspecified

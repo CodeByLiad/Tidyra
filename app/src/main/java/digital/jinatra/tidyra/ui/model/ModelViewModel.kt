@@ -4,6 +4,7 @@ import android.app.Application
 import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import digital.jinatra.tidyra.ai.EngineHolder
 import digital.jinatra.tidyra.ai.LlmEngine
 import digital.jinatra.tidyra.ai.MediaPipeLlmEngine
 import digital.jinatra.tidyra.ai.ModelCatalog
@@ -39,7 +40,7 @@ data class ModelState(
 class ModelViewModel(app: Application) : AndroidViewModel(app) {
 
     private val downloader = ModelDownloader(app)
-    private val engine: LlmEngine = MediaPipeLlmEngine(app)
+    private val engine: LlmEngine get() = EngineHolder.engine(getApplication())
 
     private val _state = MutableStateFlow(ModelState())
     val state: StateFlow<ModelState> = _state.asStateFlow()
@@ -161,10 +162,9 @@ class ModelViewModel(app: Application) : AndroidViewModel(app) {
 
     fun dismissMessage() = _state.update { it.copy(message = null) }
 
-    override fun onCleared() {
-        engine.unload()
-        super.onCleared()
-    }
+    // The engine is shared, so it is not unloaded here: the user unloads it, or the
+    // process ends. Dropping it on every screen change would mean reloading 555 MB.
+
 
     private fun updateEntry(id: String, transform: (ModelState.Entry) -> ModelState.Entry) {
         _state.update { current ->
