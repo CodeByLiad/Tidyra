@@ -1,0 +1,227 @@
+package digital.jinatra.tidyra.ui.organize
+
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import digital.jinatra.tidyra.ui.format.Format
+import digital.jinatra.tidyra.ui.theme.Crimson
+import digital.jinatra.tidyra.ui.theme.LocalStationType
+import digital.jinatra.tidyra.ui.theme.Module
+import java.io.File
+
+/**
+ * Filing, with the whole plan shown before anything moves.
+ *
+ * This screen never deletes. The worst it can do is put a file in a folder you did not
+ * expect, and one tap puts it back — the plan is its own undo record.
+ */
+@Composable
+fun OrganizeScreen(
+    state: OrganizeState,
+    onSelect: (File) -> Unit,
+    onApply: () -> Unit,
+    onUndo: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val type = LocalStationType.current
+    val colors = MaterialTheme.colorScheme
+
+    LazyColumn(
+        modifier = modifier.fillMaxWidth(),
+        contentPadding = PaddingValues(bottom = Module.x4),
+    ) {
+        item {
+            Column(
+                Modifier
+                    .statusBarsPadding()
+                    .padding(start = Module.x3, end = Module.x3, top = Module.x2, bottom = Module.u),
+            ) {
+                Text("Organise", style = type.wordmark, color = colors.onSurface)
+                Text(
+                    text = "Loose files get filed by type. Nothing is deleted here, and every move can be undone in one tap.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = colors.onSurfaceVariant,
+                    modifier = Modifier.padding(top = Module.half),
+                )
+            }
+            HorizontalDivider(color = colors.outline)
+        }
+
+        item {
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = Module.x3, vertical = Module.x2),
+                horizontalArrangement = Arrangement.spacedBy(Module.u),
+            ) {
+                state.folders.forEach { folder ->
+                    FilterChip(
+                        selected = state.selected == folder,
+                        onClick = { onSelect(folder) },
+                        label = { Text(folder.name) },
+                        shape = RoundedCornerShape(Module.half),
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = Crimson,
+                            selectedLabelColor = colors.onPrimary,
+                        ),
+                    )
+                }
+            }
+        }
+
+        val plan = state.plan
+        when {
+            state.selected == null -> item {
+                Footnote("Pick a folder to see what Tidyra would do with it.")
+            }
+
+            state.working -> item { Footnote("Reading ${state.selected.name}…") }
+
+            plan == null || plan.moves.isEmpty() -> item {
+                Footnote("Nothing loose in ${state.selected.name}. It is already filed.")
+            }
+
+            else -> {
+                item {
+                    Column(Modifier.padding(horizontal = Module.x3, vertical = Module.x2)) {
+                        Text(
+                            text = "Planned layout",
+                            style = type.section,
+                            color = colors.onSurface,
+                        )
+                        Text(
+                            text = "${Format.count(plan.fileCount, "file")} into ${Format.count(plan.byBucket.size, "folder")}. Shown in full before anything moves.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = colors.onSurfaceVariant,
+                            modifier = Modifier.padding(top = Module.half),
+                        )
+                    }
+                }
+
+                plan.byBucket.forEach { (bucket, moves) ->
+                    item {
+                        Column(Modifier.padding(horizontal = Module.x3, vertical = Module.u)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = "${state.selected.name}/$bucket/",
+                                    style = MaterialTheme.typography.titleLarge,
+                                    color = colors.onSurface,
+                                    modifier = Modifier.weight(1f),
+                                )
+                                Text(
+                                    text = Format.count(moves.size, "file"),
+                                    style = type.amount,
+                                    color = colors.onSurfaceVariant,
+                                )
+                            }
+                            moves.take(6).forEach { move ->
+                                Text(
+                                    text = move.from.name,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = colors.onSurfaceVariant,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.padding(start = Module.x2, top = 2.dp),
+                                )
+                            }
+                            if (moves.size > 6) {
+                                Text(
+                                    text = "and ${moves.size - 6} more",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = colors.onSurfaceVariant,
+                                    modifier = Modifier.padding(start = Module.x2, top = 2.dp),
+                                )
+                            }
+                        }
+                        HorizontalDivider(
+                            modifier = Modifier.padding(horizontal = Module.x3),
+                            color = colors.outlineVariant,
+                        )
+                    }
+                }
+
+                if (plan.skipped.isNotEmpty()) {
+                    item {
+                        Column(Modifier.padding(horizontal = Module.x3, vertical = Module.x2)) {
+                            Text(
+                                text = "Left alone",
+                                style = MaterialTheme.typography.titleLarge,
+                                color = colors.onSurface,
+                            )
+                            plan.skipped.take(5).forEach { (file, reason) ->
+                                Text(
+                                    text = "${file.name} — $reason",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = colors.onSurfaceVariant,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.padding(top = 2.dp),
+                                )
+                            }
+                        }
+                    }
+                }
+
+                item {
+                    Button(
+                        onClick = onApply,
+                        enabled = !state.working,
+                        shape = RoundedCornerShape(Module.half),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Crimson,
+                            contentColor = colors.onPrimary,
+                        ),
+                        modifier = Modifier
+                            .padding(horizontal = Module.x3, vertical = Module.x2)
+                            .fillMaxWidth(),
+                    ) {
+                        Text("MOVE ${plan.fileCount} FILES", style = type.stencil)
+                    }
+                }
+            }
+        }
+
+        state.lastResult?.let { result ->
+            item {
+                Column(Modifier.padding(horizontal = Module.x3, vertical = Module.x2)) {
+                    Text(
+                        text = "${Format.count(result.moved.size, "file")} filed" +
+                            if (result.failed.isEmpty()) "" else ", ${result.failed.size} could not be moved",
+                        style = MaterialTheme.typography.titleLarge,
+                        color = colors.onSurface,
+                    )
+                    TextButton(onClick = onUndo, contentPadding = PaddingValues(0.dp)) {
+                        Text("PUT THEM BACK", style = type.stencil, color = Crimson)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun Footnote(text: String) = Text(
+    text = text,
+    style = MaterialTheme.typography.bodyMedium,
+    color = MaterialTheme.colorScheme.onSurfaceVariant,
+    modifier = Modifier.padding(horizontal = Module.x3, vertical = Module.x2),
+)

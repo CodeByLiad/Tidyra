@@ -91,6 +91,11 @@ data class Finding(
         /** For duplicates: the copy being kept, which is why this one is safe to remove. */
         val keptCounterpart: String? = null,
         val packageName: String? = null,
+        /**
+         * What to call this in the UI. An app's own name, where a package name would be
+         * unreadable — nobody recognises com.playdigious.pol.
+         */
+        val label: String? = null,
     )
 }
 

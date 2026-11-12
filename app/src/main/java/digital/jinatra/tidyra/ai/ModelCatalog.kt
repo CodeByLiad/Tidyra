@@ -3,6 +3,7 @@ package digital.jinatra.tidyra.ai
 import android.app.ActivityManager
 import android.content.Context
 import android.os.Build
+import android.os.Environment
 import digital.jinatra.tidyra.core.model.Bytes
 import java.io.File
 
@@ -71,7 +72,26 @@ object ModelCatalog {
         else Compatibility.SUPPORTED
     }
 
-    fun modelDir(context: Context): File = File(context.filesDir, "models").apply { mkdirs() }
+    /** The shared location other Jinatra apps read from. Stable: do not move it. */
+    const val SHARED_DIR = "Documents/Jinatra/models"
+
+    /**
+     * Where a downloaded model lives.
+     *
+     * Shared storage when Tidyra has all-files access, so one 555 MB download can serve
+     * every Jinatra app on the phone instead of each shipping its own copy. It also
+     * survives uninstalling Tidyra, and the user can see and delete it in any file
+     * manager — a file this large has no business being invisible.
+     *
+     * Falls back to app-private storage when all-files access has not been granted.
+     */
+    fun modelDir(context: Context): File {
+        val shared = File(Environment.getExternalStorageDirectory(), SHARED_DIR)
+        if (Environment.isExternalStorageManager() && (shared.isDirectory || shared.mkdirs())) {
+            return shared
+        }
+        return File(context.filesDir, "models").apply { mkdirs() }
+    }
 
     fun fileFor(context: Context, model: Model): File = File(modelDir(context), model.fileName)
 

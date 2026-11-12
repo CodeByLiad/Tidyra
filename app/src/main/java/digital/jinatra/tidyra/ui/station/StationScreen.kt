@@ -76,6 +76,8 @@ fun StationScreen(
     onGrantAllFiles: () -> Unit,
     onGrantUsage: () -> Unit,
     onOpenFinding: (String) -> Unit,
+    onOpenCategory: (StorageCategory) -> Unit = {},
+    listState: androidx.compose.foundation.lazy.LazyListState = androidx.compose.foundation.lazy.rememberLazyListState(),
     modifier: Modifier = Modifier,
 ) {
     val type = LocalStationType.current
@@ -86,22 +88,12 @@ fun StationScreen(
     Scaffold(
         modifier = modifier,
         containerColor = colors.background,
-        bottomBar = {
-            AnimatedVisibility(
-                visible = plan.itemCount > 0,
-                enter = slideInVertically { it },
-                exit = slideOutVertically { it },
-            ) {
-                ApprovalBar(plan.frees, plan.itemCount, state.working, onApprove)
-            }
-        },
     ) { padding ->
         LazyColumn(
+            state = listState,
             modifier = Modifier.fillMaxWidth(),
             contentPadding = PaddingValues(bottom = padding.calculateBottomPadding() + Module.x4),
         ) {
-            item { Masthead(state, onScan) }
-
             item { Hero(state) }
 
             // Below the figure, not above it: the headline number is what the page is
@@ -148,6 +140,7 @@ fun StationScreen(
                 item { SectionHeading("Storage by category") }
                 itemsIndexed(state.containers.filter { it.bytes.value > 0 }) { index, container ->
                     RankedBar(
+                        onClick = { onOpenCategory(container.category) },
                         rank = index + 1,
                         label = container.category.label,
                         bytes = container.bytes,
@@ -168,8 +161,11 @@ fun StationScreen(
                 items(state.findings, key = { it.id }) { finding ->
                     FindingRow(
                         finding = finding,
-                        selected = finding.id in state.selectedFindingIds,
+                        selection = state.selectionOf(finding),
+                        pickedCount = state.selectedCount(finding),
+                        pickedBytes = state.selectedBytes(finding),
                         onToggle = { onToggleFinding(finding.id, it) },
+                        onOpen = { onOpenFinding(finding.id) },
                     )
                 }
             } else if (!state.scanning && state.containers.isNotEmpty()) {
@@ -302,6 +298,7 @@ private fun Stat(label: String, value: String, modifier: Modifier = Modifier) {
  */
 @Composable
 private fun RankedBar(
+    onClick: () -> Unit,
     rank: Int,
     label: String,
     bytes: Bytes,
@@ -321,6 +318,7 @@ private fun RankedBar(
     Row(
         Modifier
             .fillMaxWidth()
+            .clickable(onClick = onClick)
             .padding(horizontal = Module.x3, vertical = Module.u + 2.dp)
             .clearAndSetSemantics {
                 contentDescription = "$rank. $label, ${Format.spokenSize(bytes)}, ${(share * 100).toInt()} percent"
@@ -373,7 +371,15 @@ private fun RankedBar(
 }
 
 @Composable
-private fun FindingRow(finding: Finding, selected: Boolean, onToggle: (Boolean) -> Unit) {
+private fun FindingRow(
+    finding: Finding,
+    selection: StationState.Selection,
+    pickedCount: Int,
+    pickedBytes: Bytes,
+    onToggle: (Boolean) -> Unit,
+    onOpen: () -> Unit,
+) {
+    val selected = selection != StationState.Selection.NONE
     val type = LocalStationType.current
     val colors = MaterialTheme.colorScheme
     val riskColor = when (finding.risk) {
@@ -387,14 +393,16 @@ private fun FindingRow(finding: Finding, selected: Boolean, onToggle: (Boolean) 
         Risk.PERSONAL -> "PERSONAL — BACK UP FIRST"
     }
 
-    Column(Modifier.clickable { onToggle(!selected) }) {
+    Column(Modifier.clickable(onClick = onOpen)) {
         Row(
             Modifier
                 .fillMaxWidth()
                 .padding(horizontal = Module.x3, vertical = Module.x2),
             verticalAlignment = Alignment.Top,
         ) {
-            SelectionDot(selected)
+            Box(Modifier.clickable { onToggle(selection != StationState.Selection.ALL) }) {
+                SelectionDot(selection)
+            }
             Column(Modifier.weight(1f).padding(start = Module.x2)) {
                 Text(finding.title, style = MaterialTheme.typography.titleLarge, color = colors.onSurface)
                 Text(
@@ -431,7 +439,11 @@ private fun FindingRow(finding: Finding, selected: Boolean, onToggle: (Boolean) 
                     color = if (selected) Crimson else colors.onSurface,
                 )
                 Text(
-                    text = Format.count(finding.items.size, "item"),
+                    text = if (pickedCount > 0 && pickedCount < finding.items.size) {
+                        "${'$'}pickedCount of ${'$'}{finding.items.size} picked · ${'$'}{Format.size(pickedBytes)}"
+                    } else {
+                        Format.count(finding.items.size, "item")
+                    },
                     style = MaterialTheme.typography.bodySmall,
                     color = colors.onSurfaceVariant,
                 )
@@ -442,8 +454,9 @@ private fun FindingRow(finding: Finding, selected: Boolean, onToggle: (Boolean) 
 }
 
 @Composable
-private fun SelectionDot(selected: Boolean) {
+private fun SelectionDot(selection: StationState.Selection) {
     val colors = MaterialTheme.colorScheme
+    val selected = selection != StationState.Selection.NONE
     Box(
         Modifier
             .padding(top = 6.dp)
@@ -460,7 +473,11 @@ private fun SelectionDot(selected: Boolean) {
                     .background(colors.surfaceContainerHighest),
             )
         } else {
-            Text("✓", color = colors.onPrimary, style = MaterialTheme.typography.labelMedium)
+            Text(
+                text = if (selection == StationState.Selection.ALL) "✓" else "–",
+                color = colors.onPrimary,
+                style = MaterialTheme.typography.labelMedium,
+            )
         }
     }
 }
@@ -548,7 +565,7 @@ private fun Notice(
 }
 
 @Composable
-private fun ApprovalBar(frees: Bytes, items: Int, working: Boolean, onApprove: () -> Unit) {
+internal fun ApprovalBar(frees: Bytes, items: Int, working: Boolean, onApprove: () -> Unit) {
     val type = LocalStationType.current
     val colors = MaterialTheme.colorScheme
     Column(

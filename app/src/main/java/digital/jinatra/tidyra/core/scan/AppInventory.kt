@@ -116,6 +116,7 @@ class AppInventory(private val context: Context) {
                     size = it.totalBytes,
                     lastModifiedMillis = it.lastUsedMillis,
                     packageName = it.packageName,
+                    label = it.label,
                 )
             },
         )
@@ -142,6 +143,7 @@ class AppInventory(private val context: Context) {
                     size = it.cacheBytes,
                     lastModifiedMillis = it.lastUsedMillis,
                     packageName = it.packageName,
+                    label = it.label,
                 )
             },
         )

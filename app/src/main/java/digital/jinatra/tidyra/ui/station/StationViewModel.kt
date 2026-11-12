@@ -32,8 +32,11 @@ data class StationState(
     val snapshot: StorageSnapshot? = null,
     val containers: List<Container> = emptyList(),
     val findings: List<Finding> = emptyList(),
-    val selectedFindingIds: Set<String> = emptySet(),
+    /** Approval is per item, not per finding. A finding is a container, never a commitment. */
+    val selectedItems: Set<String> = emptySet(),
     val apps: List<AppInventory.AppEntry> = emptyList(),
+    /** The biggest files per category, so a category row can answer "what is in here?". */
+    val topFilesByCategory: Map<StorageCategory, List<Finding.Item>> = emptyMap(),
     val hasAllFilesAccess: Boolean = false,
     val hasUsageAccess: Boolean = false,
     val shizuku: ShizukuBridge.State = ShizukuBridge.State.UNAVAILABLE,
@@ -43,9 +46,25 @@ data class StationState(
 ) {
     val plan: ActionPlan
         get() {
-            val approved = findings.filter { it.id in selectedFindingIds }
-            return ActionPlan(approved, approved.flatMap { f -> f.items.map { it.path } }.toSet())
+            val approved = findings.filter { finding -> finding.items.any { it.path in selectedItems } }
+            return ActionPlan(approved, selectedItems)
         }
+
+    enum class Selection { NONE, SOME, ALL }
+
+    fun selectionOf(finding: Finding): Selection {
+        val picked = finding.items.count { it.path in selectedItems }
+        return when (picked) {
+            0 -> Selection.NONE
+            finding.items.size -> Selection.ALL
+            else -> Selection.SOME
+        }
+    }
+
+    fun selectedCount(finding: Finding): Int = finding.items.count { it.path in selectedItems }
+
+    fun selectedBytes(finding: Finding): Bytes =
+        Bytes(finding.items.filter { it.path in selectedItems }.sumOf { it.size.value })
 
     data class Container(
         val category: StorageCategory,
@@ -137,21 +156,49 @@ class StationViewModel(app: Application) : AndroidViewModel(app) {
                     snapshot = result.snapshot,
                     findings = findings,
                     apps = apps,
-                    containers = buildContainers(result.snapshot, apps, findings, it.selectedFindingIds),
+                    topFilesByCategory = result.files
+                        .groupBy { entry -> entry.category }
+                        .mapValues { (_, entries) ->
+                            entries.sortedByDescending { entry -> entry.size }
+                                .take(100)
+                                .map { entry ->
+                                    Finding.Item(
+                                        path = entry.file.absolutePath,
+                                        size = Bytes(entry.size),
+                                        lastModifiedMillis = entry.lastModified,
+                                    )
+                                }
+                        },
+                    containers = buildContainers(result.snapshot, apps, findings, it.selectedItems),
                     trashBytes = trash.size(),
                 )
             }
         }
     }
 
+    /** Selecting a finding selects every item in it; the user can then deselect individually. */
     fun toggleFinding(id: String, selected: Boolean) {
         _state.update { current ->
-            val ids = current.selectedFindingIds.toMutableSet().apply {
-                if (selected) add(id) else remove(id)
+            val finding = current.findings.firstOrNull { it.id == id } ?: return@update current
+            val paths = finding.items.map { it.path }
+            val items = current.selectedItems.toMutableSet().apply {
+                if (selected) addAll(paths) else removeAll(paths.toSet())
             }
             current.copy(
-                selectedFindingIds = ids,
-                containers = buildContainers(current.snapshot, current.apps, current.findings, ids),
+                selectedItems = items,
+                containers = buildContainers(current.snapshot, current.apps, current.findings, items),
+            )
+        }
+    }
+
+    fun toggleItem(path: String, selected: Boolean) {
+        _state.update { current ->
+            val items = current.selectedItems.toMutableSet().apply {
+                if (selected) add(path) else remove(path)
+            }
+            current.copy(
+                selectedItems = items,
+                containers = buildContainers(current.snapshot, current.apps, current.findings, items),
             )
         }
     }
@@ -177,7 +224,7 @@ class StationViewModel(app: Application) : AndroidViewModel(app) {
                 it.copy(
                     working = false,
                     lastResult = result,
-                    selectedFindingIds = emptySet(),
+                    selectedItems = emptySet(),
                     trashBytes = trash.size(),
                 )
             }
@@ -226,13 +273,13 @@ class StationViewModel(app: Application) : AndroidViewModel(app) {
         snapshot: StorageSnapshot?,
         apps: List<AppInventory.AppEntry>,
         findings: List<Finding>,
-        selected: Set<String>,
+        selectedItems: Set<String>,
     ): List<StationState.Container> {
         if (snapshot == null) return emptyList()
 
         val appBytes = Bytes(apps.sumOf { it.appBytes.value })
         val appDataBytes = Bytes(apps.sumOf { it.dataBytes.value + it.cacheBytes.value })
-        val proposed = proposedByCategory(findings.filter { it.id in selected })
+        val proposed = proposedByCategory(findings, selectedItems)
 
         val order = listOf(
             StorageCategory.APPS to appBytes,
@@ -249,12 +296,16 @@ class StationViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    private fun proposedByCategory(selected: List<Finding>): Map<StorageCategory, Bytes> {
+    private fun proposedByCategory(
+        findings: List<Finding>,
+        selectedItems: Set<String>,
+    ): Map<StorageCategory, Bytes> {
         val totals = HashMap<StorageCategory, Long>()
         val counted = HashSet<String>()
 
-        selected.forEach { finding ->
+        findings.forEach { finding ->
             finding.items.forEach { item ->
+                if (item.path !in selectedItems) return@forEach
                 if (!counted.add(item.path)) return@forEach
                 val category = when (finding.kind) {
                     FindingKind.UNUSED_APP -> StorageCategory.APPS
