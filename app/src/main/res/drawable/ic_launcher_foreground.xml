@@ -1,8 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  The container row, which is the app's signature: three enamel bars at different fills.
-  Not a bin, not a broom, not a rocket — the mark is the measurement.
-  108dp canvas, art kept inside the 72dp safe zone (18..90).
+  Tidyra's mark: a transitional serif T over a rule — the app's masthead, compressed to
+  one letter. It belongs to the same world as the wordmark (Playfair, ink on paper, one
+  crimson accent) rather than illustrating the subject; a drawn broom or bin would date
+  instantly and look like every other cleaner in the store.
+
+  Drawn as a letterform, not an icon: bracketed serifs under each arm, a stem that tapers
+  slightly toward the foot, and a flat foot serif. The crimson rule beneath is the same
+  hairline that divides every section of the app.
+
+  108dp canvas; the art stays inside the 72dp safe zone (18..90) so no mask clips it.
 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
@@ -10,19 +17,32 @@
     android:viewportWidth="108"
     android:viewportHeight="108">
 
-    <!-- Container outlines -->
-    <path android:fillColor="#171614"
-        android:pathData="M26,34h56v12h-56z" />
-    <path android:fillColor="#171614"
-        android:pathData="M26,52h56v12h-56z" />
-    <path android:fillColor="#171614"
-        android:pathData="M26,70h56v12h-56z" />
+    <!-- Arm, with bracketed serifs turning down at each end -->
+    <!-- Scaled to sit inside the circular mask: at full size the rule under
+         the letter is clipped by the crop. Pivot is the lockup's own centre. -->
+    <group
+        android:pivotX="54"
+        android:pivotY="60"
+        android:scaleX="0.78"
+        android:scaleY="0.78"
+        android:translateY="-6">
+        <path
+            android:fillColor="#15110E"
+            android:pathData="M27,30 L81,30 L81,45 L77.2,45 C76.6,41.4 75.2,39.6 72,39.2 L57.6,39.2 L57.6,34.5 L50.4,34.5 L50.4,39.2 L36,39.2 C32.8,39.6 31.4,41.4 30.8,45 L27,45 Z" />
 
-    <!-- Fills, at three different levels, in the container palette -->
-    <path android:fillColor="#1C5FA8"
-        android:pathData="M28,36h38v8h-38z" />
-    <path android:fillColor="#1E7A4B"
-        android:pathData="M28,54h22v8h-22z" />
-    <path android:fillColor="#C8321E"
-        android:pathData="M28,72h48v8h-48z" />
+        <!-- Stem: 10 units at the arm, tapering to 8.4 at the foot -->
+        <path
+            android:fillColor="#15110E"
+            android:pathData="M50.4,34.5 L57.6,34.5 L58.8,72 L49.2,72 Z" />
+
+        <!-- Foot serif, with the same bracket as the arm -->
+        <path
+            android:fillColor="#15110E"
+            android:pathData="M39,79.5 C44.4,79.1 47.6,77.4 48.6,72 L59.4,72 C60.4,77.4 63.6,79.1 69,79.5 L69,82.5 L39,82.5 Z" />
+
+        <!-- The rule that runs under every section heading in the app -->
+        <path
+            android:fillColor="#D6203F"
+            android:pathData="M27,88 L81,88 L81,90.5 L27,90.5 Z" />
+    </group>
 </vector>

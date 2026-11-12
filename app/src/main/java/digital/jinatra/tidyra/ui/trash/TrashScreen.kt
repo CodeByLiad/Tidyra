@@ -109,25 +109,29 @@ fun TrashScreen(
                     horizontalArrangement = Arrangement.spacedBy(Module.x2),
                 ) {
                     if (selecting) {
+                        // The count lives in the label, not only in a status line: a
+                        // destructive button should say how much it is about to destroy.
+                        val n = chosen.size
+                        Action("CANCEL", enabled = true, color = colors.onSurfaceVariant) { clearSelection() }
                         Text(
                             text = if (confirmingDelete) {
-                                "Deleting ${chosen.size} for good"
+                                "Gone for good"
                             } else {
-                                "${chosen.size} picked · ${Format.size(chosenBytes)}"
+                                "$n selected · ${Format.size(chosenBytes)}"
                             },
                             style = MaterialTheme.typography.bodyMedium,
                             color = if (confirmingDelete) Crimson else colors.onSurfaceVariant,
                             modifier = Modifier.weight(1f),
                         )
-                        if (!confirmingDelete) {
-                            Action("PUT BACK", enabled = chosen.isNotEmpty() && !working) {
+                        if (!confirmingDelete && n > 0) {
+                            Action("PUT BACK $n", enabled = !working) {
                                 onRestoreMany(chosen.toSet())
                                 clearSelection()
                             }
                         }
                         Action(
-                            label = if (confirmingDelete) "YES, DELETE" else "DELETE",
-                            enabled = chosen.isNotEmpty() && !working,
+                            label = if (confirmingDelete) "YES, DELETE $n" else "DELETE $n",
+                            enabled = n > 0 && !working,
                         ) {
                             if (confirmingDelete) {
                                 onPurgeMany(chosen.toSet())
@@ -136,15 +140,19 @@ fun TrashScreen(
                                 confirmingDelete = true
                             }
                         }
-                        Action("CANCEL", enabled = true, color = colors.onSurfaceVariant) { clearSelection() }
                     } else {
                         Text(
-                            text = if (confirmingEmpty) "This cannot be undone" else "Auto-purged after 14 days · long-press to pick several",
+                            text = if (confirmingEmpty) "This cannot be undone" else "Auto-purged after 14 days",
                             style = MaterialTheme.typography.bodySmall,
                             color = if (confirmingEmpty) Crimson else colors.onSurfaceVariant,
                             modifier = Modifier.weight(1f),
                         )
                         if (!confirmingEmpty) {
+                            // Long-press alone hides the feature from anyone who has not
+                            // been told about it.
+                            Action("SELECT", enabled = !working, color = colors.onSurfaceVariant) {
+                                selecting = true
+                            }
                             Action("RESTORE ALL", enabled = !working) { onRestoreAll() }
                         }
                         Action(

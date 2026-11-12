@@ -1,0 +1,3 @@
+First public build.
+
+Scan, per-item approval, trash with restore, folder organiser, optional Shizuku, optional on-device Gemma.

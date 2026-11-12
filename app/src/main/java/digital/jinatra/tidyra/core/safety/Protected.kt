@@ -71,8 +71,11 @@ object Protected {
      * timestamp would sometimes delete the camera roll and leave the chat attachment,
      * which is exactly backwards.
      */
-    fun keepRank(file: File): Int {
-        val lower = file.absolutePath.lowercase()
+    fun keepRank(file: File): Int = keepRank(file.path)
+
+    /** Separator-agnostic so the rule is testable off-device as well as on it. */
+    fun keepRank(path: String): Int {
+        val lower = path.replace("\\", "/").lowercase()
         return when {
             lower.contains("/dcim/camera/") -> 0
             lower.contains("/dcim/") -> 1

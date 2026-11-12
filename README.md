@@ -63,7 +63,28 @@ Version pins that matter: AGP 8.13.2, Kotlin 2.4.21, Compose 1.11.4, material3 1
 
 ## Status
 
-Early. The scan engine, duplicate finder, app inventory, Shizuku bridge, trash, organiser and the Gemma download/inference layer are written and building; the UI is in progress. See [RESUME.md](RESUME.md) for exactly where it stands and [PRD.md](PRD.md) for what it is meant to become.
+Early but working, and exercised end to end on an emulator seeded with ~260 MB of
+realistic mess (duplicates spread across three locations, stale installers, a 120 MB
+video, protected backups, empty folders, loose files):
+
+| | |
+|---|---|
+| Scan of shared storage | works |
+| Duplicate detection, hash-verified | works — and keeps the camera original, not merely the oldest copy |
+| Protected files excluded | works — chat databases, backups and key material are never offered |
+| Per-item approval, trash, restore | works |
+| Folder organiser, plan then apply | works |
+| On-device model download, load, explain | works |
+| Shizuku cache clearing and silent uninstall | written, not yet verified on hardware |
+
+Unit tests cover the safety rules and the prompt framing: `./gradlew testDebugUnitTest`.
+
+See [RESUME.md](RESUME.md) for exactly where it stands and [PRD.md](PRD.md) for what it is
+meant to become. Screenshots live in `fastlane/metadata/android/en-US/images/`.
+
+A note on Gemma: Google serves it behind a licence gate, so downloading it needs a Hugging
+Face token. SmolLM 135M is also in the catalogue — open, tokenless, and small — so the
+on-device path can be tried without an account. Its answers are correspondingly rough.
 
 ## Licence
 

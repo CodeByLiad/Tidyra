@@ -1,0 +1,34 @@
+Tidyra shows you what is taking up space on your phone, proposes specific things to remove, and does nothing until you approve those specific items.
+
+Most storage cleaners are funded by ads and retention. They exaggerate what they find, ask for permissions they do not need, and hide the actual work behind one big button. Tidyra is built on the opposite premise.
+
+WHAT IT FINDS
+
+* Folder sizes across shared storage, including the Android/media folders where chat apps keep their pictures and videos
+* Duplicate files, proved byte for byte: grouped by exact size, then an 8 KB edge hash, then a full SHA-256. Two files sharing a name and a size is never treated as proof
+* How much each app holds and how long since you last opened it
+* Stale installers, empty folders, loose files with no folder of their own, and anything over 100 MB
+
+HOW IT BEHAVES
+
+Nothing happens without your approval, item by item. There is no one-tap clean anywhere in the app.
+
+Every proposal states what it frees and what you would lose. Every completed action states what actually happened, including what failed.
+
+Android has no recycle bin, so Tidyra keeps one. Approved deletions move to a trash you can restore from, and are purged on a schedule you control. "Moved to trash" and "freed" are reported as two different numbers, because a file in the trash still takes up space.
+
+Some things are never offered for deletion at all: app databases that hold your chat history, backups, wallet and key files, and game data that may not be re-downloadable.
+
+ON-DEVICE AI, OPTIONAL
+
+You can download a Gemma model inside the app and have it explain findings in plain language. It runs on your phone. Your file names, sizes and folders are never uploaded — the model download is the only network request Tidyra ever makes. The model only ever explains; it never decides what gets removed.
+
+Everything in the app works with no model installed.
+
+SHIZUKU, OPTIONAL
+
+Android does not let an ordinary app clear another app's cache, read inside Android/data, or uninstall without a dialog. With Shizuku paired, Tidyra can do all three. Without it, every screen still works and the app tells you plainly what Android is blocking instead of pretending otherwise.
+
+FREE AND OPEN
+
+No ads. No trackers. No analytics. No accounts. No upsell. GPL-3.0, source public.
