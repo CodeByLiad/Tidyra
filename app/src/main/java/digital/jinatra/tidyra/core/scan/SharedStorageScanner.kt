@@ -8,6 +8,7 @@ import digital.jinatra.tidyra.core.model.FindingKind
 import digital.jinatra.tidyra.core.model.Risk
 import digital.jinatra.tidyra.core.model.StorageCategory
 import digital.jinatra.tidyra.core.model.StorageSnapshot
+import digital.jinatra.tidyra.core.safety.Protected
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.Flow
@@ -129,14 +130,14 @@ class SharedStorageScanner {
         val installers = files.filter {
             it.file.extension.lowercase() in INSTALLER_EXTENSIONS &&
                 it.lastModified < cutoff &&
-                !it.file.absolutePath.contains("/Android/obb/")
+                !Protected.isProtected(it.file.absolutePath)
         }
         if (installers.isEmpty()) return null
 
         return Finding(
             id = "stale-installers",
             kind = FindingKind.STALE_INSTALLER,
-            title = if (installers.size == 1) "1 stale installer" else "${installers.size} stale installers",
+            title = plural(installers.size, "stale installer", "stale installers"),
             detail = "Package files older than 30 days. The app they install is either already on the phone or no longer wanted.",
             frees = Bytes(installers.sumOf { it.size }),
             risk = Risk.REVIEW,
@@ -151,7 +152,7 @@ class SharedStorageScanner {
         return Finding(
             id = "empty-folders",
             kind = FindingKind.EMPTY_FOLDER,
-            title = "${dirs.size} empty folders",
+            title = plural(dirs.size, "empty folder", "empty folders"),
             detail = "Left behind by apps that have moved on. Removing them frees no space; it only tidies.",
             frees = Bytes.ZERO,
             risk = Risk.SAFE,
@@ -160,7 +161,9 @@ class SharedStorageScanner {
     }
 
     private fun largeFiles(files: List<FileEntry>): Finding? {
-        val large = files.filter { it.size >= LARGE_FILE_THRESHOLD }
+        val large = files.filter {
+            it.size >= LARGE_FILE_THRESHOLD && !Protected.isProtected(it.file.absolutePath)
+        }
             .sortedByDescending { it.size }
             .take(50)
         if (large.isEmpty()) return null
@@ -168,7 +171,7 @@ class SharedStorageScanner {
         return Finding(
             id = "large-files",
             kind = FindingKind.LARGE_FILE,
-            title = "${large.size} files over 100 MB",
+            title = plural(large.size, "file", "files") + " over 100 MB",
             detail = "Not junk by definition — shown so you can decide. Nothing here is pre-selected.",
             frees = Bytes(large.sumOf { it.size }),
             risk = Risk.PERSONAL,
@@ -179,19 +182,27 @@ class SharedStorageScanner {
     /** Files sitting directly in Download, Documents and similar, with no folder of their own. */
     private fun looseFiles(files: List<FileEntry>, root: File): Finding? {
         val targets = LOOSE_FILE_DIRS.map { File(root, it).absolutePath }.toSet()
-        val loose = files.filter { it.file.parent in targets && !it.file.name.startsWith(".") }
+        val loose = files.filter {
+            it.file.parent in targets &&
+                !it.file.name.startsWith(".") &&
+                !Protected.isProtected(it.file.absolutePath)
+        }
         if (loose.size < 3) return null
 
         return Finding(
             id = "loose-files",
             kind = FindingKind.LOOSE_FILES,
-            title = "${loose.size} loose files",
+            title = plural(loose.size, "loose file", "loose files"),
             detail = "Sitting directly in ${LOOSE_FILE_DIRS.joinToString(", ")}. These get filed into folders, not deleted.",
             frees = Bytes.ZERO,
             risk = Risk.SAFE,
             items = loose.map { Finding.Item(it.file.absolutePath, Bytes(it.size), it.lastModified) },
         )
     }
+
+    /** "1 file", not "1 files". Small thing; it is the difference between written and generated. */
+    private fun plural(count: Int, one: String, many: String): String =
+        "$count " + if (count == 1) one else many
 
     private companion object {
         const val THIRTY_DAYS = 30L * 24 * 60 * 60 * 1000

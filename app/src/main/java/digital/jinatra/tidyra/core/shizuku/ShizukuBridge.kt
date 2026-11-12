@@ -87,8 +87,16 @@ class ShizukuBridge {
     suspend fun clearCache(packageName: String): ShellResult =
         exec("pm", "clear", "--cache-only", packageName)
 
-    suspend fun uninstall(packageName: String): ShellResult =
-        exec("pm", "uninstall", "--user", "0", packageName)
+    /**
+     * Shell-level uninstall. Guarded here as well as in the UI: this runs with ADB
+     * rights, so a wrong package name is not a bad screen, it is a broken phone.
+     */
+    suspend fun uninstall(packageName: String): ShellResult {
+        if (digital.jinatra.tidyra.core.safety.Protected.isProtectedPackage(packageName, isSystem = false)) {
+            return ShellResult(-1, "", "Refused: $packageName is protected")
+        }
+        return exec("pm", "uninstall", "--user", "0", packageName)
+    }
 
     /** Sizes inside another app's Android/data, which is unreadable to us on Android 11+. */
     suspend fun duOfRestrictedDir(path: String): ShellResult = exec("du", "-sk", path)

@@ -27,6 +27,8 @@ object ModelCatalog {
         val description: String,
         /** Hugging Face serves this behind a licence acceptance, so a token is needed. */
         val needsHuggingFaceToken: Boolean = true,
+        /** Instruct models answer only when their own turn markers are used. */
+        val template: PromptTemplate = PromptTemplate.GEMMA,
         val licence: String = "Gemma Terms of Use",
     )
 
@@ -42,6 +44,7 @@ object ModelCatalog {
             fileName = "SmolLM-135M-Instruct_q8.task",
             description = "Small and open — no account or token needed. Good for checking that on-device AI works on your phone; its explanations are rougher than Gemma's.",
             needsHuggingFaceToken = false,
+            template = PromptTemplate.CHATML,
             licence = "Apache-2.0",
         ),
         Model(

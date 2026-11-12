@@ -7,6 +7,7 @@ import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.flowOn
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.File
@@ -52,7 +53,13 @@ class ModelDownloader(private val context: Context) {
             .url(model.url)
             .apply {
                 if (already > 0) header("Range", "bytes=$already-")
-                if (!huggingFaceToken.isNullOrBlank()) header("Authorization", "Bearer $huggingFaceToken")
+                // Only ever to Hugging Face. A credential follows its host, not a URL
+                // that happens to be in a list the app could one day read from elsewhere.
+                val host = model.url.toHttpUrlOrNull()?.host.orEmpty()
+                val trusted = host == "huggingface.co" || host.endsWith(".huggingface.co") || host.endsWith(".hf.co")
+                if (!huggingFaceToken.isNullOrBlank() && trusted) {
+                    header("Authorization", "Bearer " + huggingFaceToken)
+                }
             }
             .build()
 

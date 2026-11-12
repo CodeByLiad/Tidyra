@@ -1,6 +1,7 @@
 package digital.jinatra.tidyra.core.scan
 
 import digital.jinatra.tidyra.core.model.Bytes
+import digital.jinatra.tidyra.core.safety.Protected
 import digital.jinatra.tidyra.core.model.Finding
 import digital.jinatra.tidyra.core.model.FindingKind
 import digital.jinatra.tidyra.core.model.Risk
@@ -58,12 +59,23 @@ class DuplicateFinder {
                     onProgress(hashed, toHash)
                     if (identical.size < 2) continue
 
-                    // Keep the oldest copy: it is the one the other was copied from,
-                    // and it is the one the user's apps are most likely to still reference.
-                    val sorted = identical.sortedBy { it.lastModified }
+                    // Keep the copy that is the original, not merely the oldest one.
+                    // A camera photo and its chat attachment have the same bytes; keeping
+                    // by timestamp alone would sometimes delete the camera roll.
+                    val sorted = identical.sortedWith(
+                        compareBy<SharedStorageScanner.FileEntry> { Protected.keepRank(it.file) }
+                            .thenBy { it.lastModified },
+                    )
+                    val keep = sorted.first().file
+                    val copies = sorted.drop(1)
+                        .map { it.file }
+                        // A protected file is never proposed for deletion, even as a copy.
+                        .filterNot { Protected.isProtected(it.absolutePath) }
+                    if (copies.isEmpty()) continue
+
                     result += DuplicateSet(
-                        keep = sorted.first().file,
-                        copies = sorted.drop(1).map { it.file },
+                        keep = keep,
+                        copies = copies,
                         eachSize = size,
                     )
                 }
@@ -80,7 +92,7 @@ class DuplicateFinder {
         return Finding(
             id = "duplicates",
             kind = FindingKind.DUPLICATE_FILES,
-            title = "$copies duplicate files",
+            title = "$copies " + if (copies == 1) "duplicate file" else "duplicate files",
             detail = "Every one checked byte for byte against the copy being kept. The kept copy is never touched.",
             frees = Bytes(frees),
             risk = Risk.SAFE,

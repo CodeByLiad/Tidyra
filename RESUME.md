@@ -1,6 +1,6 @@
 # Resume Tidyra here
 
-**Checkpoint: 2026-11-13, 02:45.** Builds clean, installed on the Pixel. Five tabs, per-item approval, trash with bulk select, on-device model loads and runs.
+**Checkpoint: 2026-11-13, 03:40.** Builds clean, installed on the Pixel. Five tabs, per-item approval, trash with bulk select, on-device model loads and runs.
 
 ## Read first
 `PRD.md` · `PRODUCT.md` · `.impeccable/build-notes.md` · `.impeccable/surfaces/digital-jinatra-tidyra-ui-mainactivity-kt-1037687c.md` (direction contract — visual world superseded by the pinned editorial one; its four disciplines still bind).
@@ -9,12 +9,23 @@
 Editorial-minimal. Nude/beige paper `#F3EDE3`, near-black ink, one vivid crimson `#D6203F` (brightened so it also pops on the dark ground `#131110`), Playfair Display (bundled, OFL), hairline rules, no cards. Light/dark toggle in the masthead.
 Disciplines: one shared size scale · one 8dp module · exact sizes (`<1%`, never `0%`) · shared items counted once.
 
-## Verified on device
-- Scan of real storage; findings with risk levels; per-item picking with running totals
-- Trash: restore one, restore all, bulk select by long-press, empty with confirm
-- **Model download**: SmolLM 135M q8 pulled to `Documents/Jinatra/models`, 166,754,726 bytes — exact
-- **Model load**: MediaPipe reports RUNNING / UNLOAD on the AI tab
-- Tabs measured stable across switches: `Storage [63..218]`, `AI [975..1017]` identical before and after, 63px margins both sides
+## Verified end to end on the emulator (`cueplay_pixel`, API 35, x86_64)
+
+Seeded with ~260 MB of realistic mess (duplicates across three locations, stale APKs, a
+120 MB video, protected backups, 10 empty folders, 15 loose files), then:
+
+- **scan** finds every category correctly
+- **duplicates**: 4 offered, and the `msgstore.db.crypt14` copy is excluded as protected
+- **the keeper rule works**: the camera original survives even though it is the *newest*
+  file — the old "keep the oldest" logic would have deleted the camera roll and kept the
+  chat attachment
+- **approve to trash**: duplicate removed from Download, camera original untouched
+- **restore**: the file comes back; the others stay in the trash
+- **organise**: plan previewed, applied, Download now sorted into 7 folders, unclassified
+  files left alone with reasons
+- **AI**: SmolLM loads (MediaPipe ships x86_64, so the emulator runs it) and answers
+  cleanly. Gemma 3 1B is correctly refused on 2.5 GB of RAM with a stated reason.
+  The answer quality from a 135M model is poor — that is the model, not the pipeline.
 
 ## Not yet verified
 **ASK GEMMA end to end.** The button was hidden because `aiReady` was only computed on activity resume — which happens before any model is loaded. Now read live from `EngineHolder.isReady`, but the full chain (load → scan → open finding → ask → read answer) has not been completed once. Driving it by UI automation kept drifting; tap it by hand.

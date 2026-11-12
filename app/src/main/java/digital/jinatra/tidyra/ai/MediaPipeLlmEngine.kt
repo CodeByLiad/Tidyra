@@ -20,15 +20,17 @@ import java.io.File
 class MediaPipeLlmEngine(private val context: Context) : LlmEngine {
 
     private var inference: LlmInference? = null
+    private var template: PromptTemplate = PromptTemplate.PLAIN
 
     override val isLoaded: Boolean get() = inference != null
 
-    override suspend fun load(modelPath: String): Result<Unit> = withContext(Dispatchers.IO) {
+    override suspend fun load(modelPath: String, template: PromptTemplate): Result<Unit> = withContext(Dispatchers.IO) {
         runCatching {
             val file = File(modelPath)
             require(file.exists() && file.length() > 0) { "Model file is missing" }
 
             unload()
+            this@MediaPipeLlmEngine.template = template
             inference = LlmInference.createFromOptions(
                 context,
                 LlmInferenceOptions.builder()
@@ -63,11 +65,14 @@ class MediaPipeLlmEngine(private val context: Context) : LlmEngine {
     override suspend fun complete(prompt: String): Result<String> = withContext(Dispatchers.IO) {
         runCatching {
             val engine = inference ?: error("No model loaded")
-            engine.generateResponse(withRules(prompt))
+            // Trim at the model's own stop marker: left to itself it runs past the end of
+            // its turn and starts inventing the next one.
+            template.trim(engine.generateResponse(withRules(prompt)))
         }
     }
 
-    private fun withRules(prompt: String) = "${LlmEngine.SYSTEM_RULES}\n\n$prompt"
+    /** Frames the turn the way this model expects. Bare text gets continued, not answered. */
+    private fun withRules(prompt: String) = template.wrap(LlmEngine.SYSTEM_RULES.trim(), prompt)
 
     private companion object {
         const val MAX_TOKENS = 1024

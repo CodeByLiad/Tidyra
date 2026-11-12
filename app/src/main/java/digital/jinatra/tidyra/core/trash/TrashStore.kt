@@ -76,7 +76,15 @@ class TrashStore(private val context: Context) {
         val entries = readManifest().toMutableList()
         val entry = entries.firstOrNull { it.originalPath == originalPath } ?: return@withContext false
         val trashed = File(entry.trashedPath)
-        val target = File(entry.originalPath)
+        var target = File(entry.originalPath)
+
+        // Something new may live at that path now. Restoring beside it loses nothing;
+        // restoring over it would destroy a file the user never chose to delete.
+        if (target.exists()) {
+            val stem = target.nameWithoutExtension
+            val extension = target.extension.let { if (it.isEmpty()) "" else ".$it" }
+            target = File(target.parentFile, stem + "-restored" + extension)
+        }
 
         target.parentFile?.mkdirs()
         val ok = trashed.renameTo(target) || trashed.copyRecursivelyThenDelete(target)

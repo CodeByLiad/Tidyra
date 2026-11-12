@@ -12,6 +12,7 @@ import digital.jinatra.tidyra.core.model.Bytes
 import digital.jinatra.tidyra.core.model.Finding
 import digital.jinatra.tidyra.core.model.FindingKind
 import digital.jinatra.tidyra.core.model.Risk
+import digital.jinatra.tidyra.core.safety.Protected
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.util.concurrent.TimeUnit
@@ -100,13 +101,16 @@ class AppInventory(private val context: Context) {
      * cleaner has no business proposing that you remove part of the operating system.
      */
     fun unusedAppsFinding(apps: List<AppEntry>, thresholdDays: Long = 90): Finding? {
-        val unused = apps.filter { !it.isSystem && it.daysSinceUse >= thresholdDays }
+        val unused = apps.filter {
+            it.daysSinceUse >= thresholdDays &&
+                !Protected.isProtectedPackage(it.packageName, it.isSystem)
+        }
         if (unused.isEmpty()) return null
 
         return Finding(
             id = "unused-apps",
             kind = FindingKind.UNUSED_APP,
-            title = "${unused.size} apps unused for $thresholdDays+ days",
+            title = "${unused.size} " + (if (unused.size == 1) "app" else "apps") + " unused for $thresholdDays+ days",
             detail = "Uninstalling takes their data with them. Each one goes through Android's own uninstall dialog, one at a time.",
             frees = Bytes(unused.sumOf { it.totalBytes.value }),
             risk = Risk.REVIEW,
@@ -133,7 +137,7 @@ class AppInventory(private val context: Context) {
         return Finding(
             id = "app-cache",
             kind = FindingKind.APP_CACHE,
-            title = "Cache in ${withCache.size} apps",
+            title = "Cache in ${withCache.size} " + if (withCache.size == 1) "app" else "apps",
             detail = "Rebuilds itself as you use the apps. Nothing is lost — not logins, not downloads you chose to keep.",
             frees = Bytes(withCache.sumOf { it.cacheBytes.value }),
             risk = Risk.SAFE,

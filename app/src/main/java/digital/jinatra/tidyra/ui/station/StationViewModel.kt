@@ -121,7 +121,12 @@ class StationViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             _state.update { it.copy(explaining = findingId) }
             val answer = EngineHolder.engine(getApplication()).complete(promptFor(finding))
-            val note = answer.getOrElse { error -> "Gemma could not answer: " + (error.message ?: "unknown error") }
+            val note = answer
+                .getOrElse { error -> "The model could not answer: " + (error.message ?: "unknown error") }
+                .ifBlank {
+                    // An empty reply is a real outcome worth naming, not a blank panel.
+                    "The model returned nothing usable. Small models often do; Gemma 3 1B answers this properly."
+                }
             _state.update { current ->
                 current.copy(
                     explaining = null,

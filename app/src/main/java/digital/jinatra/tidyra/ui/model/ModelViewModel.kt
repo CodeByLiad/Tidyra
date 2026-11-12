@@ -143,7 +143,7 @@ class ModelViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             val path = ModelCatalog.fileFor(getApplication(), model).absolutePath
             _state.update { it.copy(loading = true, message = null) }
-            val result = engine.load(path)
+            val result = engine.load(path, model.template)
             _state.update {
                 it.copy(
                     loading = false,
