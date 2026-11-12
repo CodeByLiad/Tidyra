@@ -1,52 +1,72 @@
 package digital.jinatra.tidyra.ui.station
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
-import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import digital.jinatra.tidyra.core.model.Bytes
+import digital.jinatra.tidyra.core.model.Finding
+import digital.jinatra.tidyra.core.model.Risk
 import digital.jinatra.tidyra.core.model.StorageCategory
 import digital.jinatra.tidyra.core.shizuku.ShizukuBridge
 import digital.jinatra.tidyra.ui.format.Format
 import digital.jinatra.tidyra.ui.format.SizeScale
-import digital.jinatra.tidyra.ui.theme.GlassGreen
-import digital.jinatra.tidyra.ui.theme.HazardRed
-import digital.jinatra.tidyra.ui.theme.HiVis
-import digital.jinatra.tidyra.ui.theme.Ink
+import digital.jinatra.tidyra.ui.theme.Amber
+import digital.jinatra.tidyra.ui.theme.Crimson
 import digital.jinatra.tidyra.ui.theme.LocalStationType
-import digital.jinatra.tidyra.ui.theme.MetalGrey
 import digital.jinatra.tidyra.ui.theme.Module
-import digital.jinatra.tidyra.ui.theme.OrganicBrown
-import digital.jinatra.tidyra.ui.theme.PaperBlue
-import digital.jinatra.tidyra.ui.theme.SignalAmber
+import digital.jinatra.tidyra.ui.theme.Olive
 
+/**
+ * The storage page.
+ *
+ * Set like a printed page: a masthead, one figure the page is about, then sections divided
+ * by hairline rules rather than enclosed in cards. Every bar on this screen — and in the
+ * rest of the app — is drawn against the device's whole capacity, so a megabyte is the
+ * same length wherever it appears.
+ */
 @Composable
 fun StationScreen(
     state: StationState,
@@ -61,197 +81,423 @@ fun StationScreen(
     val type = LocalStationType.current
     val scale = SizeScale(state.snapshot?.totalBytes?.value ?: 0L)
     val plan = state.plan
+    val colors = MaterialTheme.colorScheme
 
     Scaffold(
         modifier = modifier,
-        containerColor = MaterialTheme.colorScheme.background,
-        floatingActionButton = {
-            if (plan.itemCount == 0) {
-                ExtendedFloatingActionButton(
-                    onClick = onScan,
-                    containerColor = HiVis,
-                    contentColor = Ink,
-                ) {
-                    Text(
-                        text = if (state.snapshot == null) "SCAN" else "SCAN AGAIN",
-                        style = type.containerLabel,
-                    )
-                }
-            }
-        },
+        containerColor = colors.background,
         bottomBar = {
             AnimatedVisibility(
                 visible = plan.itemCount > 0,
                 enter = slideInVertically { it },
                 exit = slideOutVertically { it },
             ) {
-                ApprovalBar(
-                    frees = plan.frees,
-                    items = plan.itemCount,
-                    working = state.working,
-                    onApprove = onApprove,
-                )
+                ApprovalBar(plan.frees, plan.itemCount, state.working, onApprove)
             }
         },
     ) { padding ->
         LazyColumn(
             modifier = Modifier.fillMaxWidth(),
-            contentPadding = androidx.compose.foundation.layout.PaddingValues(
-                bottom = padding.calculateBottomPadding() + 96.dp,
-            ),
-            verticalArrangement = Arrangement.spacedBy(Module.u),
+            contentPadding = PaddingValues(bottom = padding.calculateBottomPadding() + Module.x4),
         ) {
-            item { StationHeader(state) }
+            item { Masthead(state, onScan) }
 
-            if (state.scanning) {
-                item { ScanProgress(state) }
-            }
+            item { Hero(state) }
 
-            if (!state.hasAllFilesAccess) {
-                item {
-                    Notice(
-                        title = "Tidyra cannot see your files yet",
-                        body = "All-files access lets it read folder sizes, prove duplicates are identical, and file loose files. It is the one permission the app genuinely needs.",
-                        action = "Grant access",
-                        onAction = onGrantAllFiles,
-                        accent = HazardRed,
-                    )
+            // Below the figure, not above it: the headline number is what the page is
+            // about, and progress is a note on it rather than something that displaces it.
+            if (state.scanning) item { ScanProgress(state) }
+
+            if (!state.hasAllFilesAccess || !state.hasUsageAccess ||
+                state.shizuku != ShizukuBridge.State.READY
+            ) {
+                item { Rule() }
+                if (!state.hasAllFilesAccess) {
+                    item {
+                        Notice(
+                            "Tidyra cannot see your files yet",
+                            "All-files access lets it read folder sizes, prove duplicates are identical, and file loose files. It is the one permission the app genuinely needs.",
+                            "Grant access", onGrantAllFiles, Crimson,
+                        )
+                    }
                 }
-            }
-            if (!state.hasUsageAccess) {
-                item {
-                    Notice(
-                        title = "App sizes are hidden",
-                        body = "Usage access is what reveals how much each app holds and when you last opened it. Without it, Tidyra shows nothing here rather than guessing.",
-                        action = "Grant access",
-                        onAction = onGrantUsage,
-                        accent = SignalAmber,
-                    )
+                if (!state.hasUsageAccess) {
+                    item {
+                        Notice(
+                            "App sizes are hidden",
+                            "Usage access reveals how much each app holds and when you last opened it. Without it, Tidyra shows nothing here rather than guessing.",
+                            "Grant access", onGrantUsage, Amber,
+                        )
+                    }
                 }
-            }
-            if (state.shizuku != ShizukuBridge.State.READY && state.hasAllFilesAccess) {
-                item {
-                    Notice(
-                        title = "Cache clearing needs Shizuku",
-                        body = "Android does not let an ordinary app clear another app's cache. With Shizuku paired, Tidyra can do it in one tap; without it, it will send you to each app's storage screen.",
-                        action = null,
-                        onAction = {},
-                        accent = MetalGrey,
-                    )
+                if (state.shizuku != ShizukuBridge.State.READY && state.hasAllFilesAccess) {
+                    item {
+                        Notice(
+                            "Cache clearing needs Shizuku",
+                            "Android does not let an ordinary app clear another app's cache. With Shizuku paired, Tidyra does it in one tap; without it, it sends you to each app's storage screen.",
+                            null, {}, colors.outline,
+                        )
+                    }
                 }
             }
 
             if (state.containers.isNotEmpty()) {
-                item { SectionLabel("Sorting station") }
-                items(state.containers, key = { it.category.name }) { container ->
-                    ContainerBar(
+                item { Rule() }
+                item { StatRow(state) }
+                item { Rule() }
+                item { SectionHeading("Storage by category") }
+                itemsIndexed(state.containers.filter { it.bytes.value > 0 }) { index, container ->
+                    RankedBar(
+                        rank = index + 1,
                         label = container.category.label,
                         bytes = container.bytes,
-                        color = colorFor(container.category),
-                        scale = scale,
-                        proposedBytes = container.proposed,
-                        modifier = Modifier.padding(horizontal = Module.x2),
+                        proposed = container.proposed,
+                        share = scale.fraction(container.bytes),
+                        drawn = scale.drawnFraction(container.bytes),
+                        largest = state.containers.maxOf { scale.drawnFraction(it.bytes) },
                     )
                 }
                 item {
-                    Text(
-                        text = "Every bar is drawn against the whole ${Format.size(state.snapshot?.totalBytes ?: Bytes.ZERO)}, so sizes compare honestly across the app.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(horizontal = Module.x2),
-                    )
+                    Footnote("Bars are drawn against the whole ${Format.size(state.snapshot?.totalBytes ?: Bytes.ZERO)}, so sizes compare honestly across every screen.")
                 }
             }
 
             if (state.findings.isNotEmpty()) {
-                item {
-                    SectionLabel(
-                        "Collection slips · ${Format.count(state.findings.size, "proposal")}",
-                    )
-                }
+                item { Rule() }
+                item { SectionHeading("Suggested cleanups") }
                 items(state.findings, key = { it.id }) { finding ->
-                    CollectionSlip(
+                    FindingRow(
                         finding = finding,
                         selected = finding.id in state.selectedFindingIds,
                         onToggle = { onToggleFinding(finding.id, it) },
-                        modifier = Modifier.padding(horizontal = Module.x2),
                     )
                 }
-            } else if (!state.scanning && state.snapshot != null) {
-                item {
-                    Text(
-                        text = "Nothing worth proposing. The phone is already tidy.",
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(Module.x2),
-                    )
-                }
+            } else if (!state.scanning && state.containers.isNotEmpty()) {
+                item { Footnote("Nothing worth proposing. The phone is already tidy.") }
             }
 
             state.lastResult?.let { result ->
+                item { Rule() }
                 item {
                     Notice(
-                        title = "${Format.size(result.freed)} moved to trash",
-                        body = "${Format.count(result.itemsRemoved, "item")} are recoverable until the trash is emptied. The space returns when it is." +
+                        "${Format.size(result.freed)} moved to trash",
+                        "${Format.count(result.itemsRemoved, "item")} are recoverable until the trash is emptied — the space returns when it is." +
                             if (result.itemsFailed.isEmpty()) "" else " ${result.itemsFailed.size} could not be moved.",
-                        action = null,
-                        onAction = {},
-                        accent = GlassGreen,
+                        null, {}, Olive,
                     )
                 }
             }
 
             if (state.trashBytes.value > 0) {
-                item {
-                    Text(
-                        text = "Trash holds ${Format.size(state.trashBytes)}. That space is not free until it is emptied.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(horizontal = Module.x2),
-                    )
-                }
+                item { Footnote("Trash holds ${Format.size(state.trashBytes)}. That space is not free until it is emptied.") }
             }
         }
     }
 }
 
+// -- Page furniture --------------------------------------------------------------------
+
 @Composable
-private fun StationHeader(state: StationState) {
+private fun Masthead(state: StationState, onScan: () -> Unit) {
     val type = LocalStationType.current
+    Column {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .statusBarsPadding()
+                .padding(start = Module.x3, end = Module.x3, top = Module.x2, bottom = Module.u),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = "Tidyra",
+                style = type.wordmark,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier
+                    .weight(1f)
+                    .semantics { heading() },
+            )
+            TextButton(onClick = onScan, enabled = !state.scanning) {
+                Text(
+                    text = if (state.snapshot?.byCategory.isNullOrEmpty()) "SCAN" else "RESCAN",
+                    style = type.stencil,
+                    color = Crimson,
+                )
+            }
+        }
+        HorizontalDivider(color = MaterialTheme.colorScheme.outline)
+    }
+}
+
+@Composable
+private fun Hero(state: StationState) {
+    val type = LocalStationType.current
+    val free = state.snapshot?.freeBytes ?: Bytes.ZERO
+    val total = state.snapshot?.totalBytes ?: Bytes.ZERO
+
     Column(
         Modifier
             .fillMaxWidth()
-            .background(Ink)
-            .statusBarsPadding()
-            .padding(start = Module.x2, end = Module.x2, top = Module.u + 4.dp, bottom = Module.x2),
+            .padding(horizontal = Module.x3, vertical = Module.x3)
+            .clearAndSetSemantics {
+                contentDescription = "${Format.spokenSize(free)} free of ${Format.spokenSize(total)}"
+                heading()
+            },
     ) {
-        Text("TIDYRA", style = type.wordmark, color = Color(0xFFF4F1EA))
-        Row(
-            modifier = Modifier.padding(top = Module.u + 2.dp),
-            verticalAlignment = Alignment.Bottom,
+        Text(Format.size(free), style = type.figure, color = Crimson)
+        Text(
+            text = "free of ${Format.size(total)}",
+            style = MaterialTheme.typography.headlineSmall,
+            color = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.padding(top = Module.half),
+        )
+    }
+}
+
+/** Three figures across, divided by hairlines. The reference's Movies / Series / Anime row. */
+@Composable
+private fun StatRow(state: StationState) {
+    val type = LocalStationType.current
+    val apps = state.containers.firstOrNull { it.category == StorageCategory.APPS }?.bytes ?: Bytes.ZERO
+    val data = state.containers.firstOrNull { it.category == StorageCategory.APP_DATA }?.bytes ?: Bytes.ZERO
+    val media = state.containers
+        .filter { it.category in listOf(StorageCategory.PHOTOS, StorageCategory.VIDEO, StorageCategory.AUDIO) }
+        .sumOf { it.bytes.value }
+
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .height(IntrinsicSize.Min)
+            .padding(vertical = Module.x2),
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        Stat("Apps", Format.size(apps), Modifier.weight(1f))
+        VerticalDivider(Modifier.fillMaxHeight(), color = MaterialTheme.colorScheme.outline)
+        Stat("App data", Format.size(data), Modifier.weight(1f))
+        VerticalDivider(Modifier.fillMaxHeight(), color = MaterialTheme.colorScheme.outline)
+        Stat("Media", Format.size(Bytes(media)), Modifier.weight(1f))
+    }
+}
+
+@Composable
+private fun Stat(label: String, value: String, modifier: Modifier = Modifier) {
+    val type = LocalStationType.current
+    Column(modifier.padding(horizontal = Module.x2)) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Text(
+            text = value,
+            style = type.containerLabel,
+            color = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.padding(top = 2.dp),
+        )
+    }
+}
+
+/**
+ * A ranked bar. The hatched tail marks what the current selection would remove, so a
+ * proposal is always measured against the whole device before it is approved.
+ */
+@Composable
+private fun RankedBar(
+    rank: Int,
+    label: String,
+    bytes: Bytes,
+    proposed: Bytes,
+    share: Float,
+    drawn: Float,
+    largest: Float,
+) {
+    val type = LocalStationType.current
+    val colors = MaterialTheme.colorScheme
+    // Bar lengths stay proportional to the device, then scale as a group so the largest
+    // category fills the track. The ratio between any two bars is still the true ratio.
+    val relative = if (largest > 0f) (drawn / largest) else 0f
+    val width by animateFloatAsState(relative, label = "bar")
+    val proposedWidth = if (bytes.value > 0) (proposed.value.toFloat() / bytes.value) * width else 0f
+
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .padding(horizontal = Module.x3, vertical = Module.u + 2.dp)
+            .clearAndSetSemantics {
+                contentDescription = "$rank. $label, ${Format.spokenSize(bytes)}, ${(share * 100).toInt()} percent"
+            },
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = "$rank",
+            style = MaterialTheme.typography.bodyMedium,
+            color = colors.onSurfaceVariant,
+            modifier = Modifier.width(20.dp),
+        )
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyLarge,
+            color = colors.onSurface,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.width(112.dp),
+        )
+        Box(
+            Modifier
+                .weight(1f)
+                .padding(horizontal = Module.u)
+                .height(8.dp)
+                .clip(RoundedCornerShape(4.dp))
+                .background(colors.surfaceContainerHighest),
         ) {
-            Text(
-                text = Format.size(state.snapshot?.freeBytes ?: Bytes.ZERO),
-                style = type.figure,
-                color = HiVis,
-                modifier = Modifier.semantics { heading() },
+            Box(
+                Modifier
+                    .fillMaxWidth(width)
+                    .fillMaxHeight()
+                    .background(Crimson),
             )
-            Text(
-                text = "FREE OF ${Format.size(state.snapshot?.totalBytes ?: Bytes.ZERO)}",
-                style = type.stencil,
-                color = Color(0xFFB9B4AA),
-                modifier = Modifier.padding(start = Module.u, bottom = 6.dp),
+            if (proposedWidth > 0f) {
+                Box(
+                    Modifier
+                        .fillMaxWidth(proposedWidth)
+                        .fillMaxHeight()
+                        .background(colors.onSurface.copy(alpha = 0.55f)),
+                )
+            }
+        }
+        Text(
+            text = "${Format.size(bytes)}  (${Format.percent(share)})",
+            style = type.amount,
+            color = colors.onSurfaceVariant,
+        )
+    }
+}
+
+@Composable
+private fun FindingRow(finding: Finding, selected: Boolean, onToggle: (Boolean) -> Unit) {
+    val type = LocalStationType.current
+    val colors = MaterialTheme.colorScheme
+    val riskColor = when (finding.risk) {
+        Risk.SAFE -> Olive
+        Risk.REVIEW -> Amber
+        Risk.PERSONAL -> Crimson
+    }
+    val riskWord = when (finding.risk) {
+        Risk.SAFE -> "SAFE"
+        Risk.REVIEW -> "YOUR CALL"
+        Risk.PERSONAL -> "PERSONAL — BACK UP FIRST"
+    }
+
+    Column(Modifier.clickable { onToggle(!selected) }) {
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = Module.x3, vertical = Module.x2),
+            verticalAlignment = Alignment.Top,
+        ) {
+            SelectionDot(selected)
+            Column(Modifier.weight(1f).padding(start = Module.x2)) {
+                Text(finding.title, style = MaterialTheme.typography.titleLarge, color = colors.onSurface)
+                Text(
+                    text = finding.detail,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = colors.onSurfaceVariant,
+                    modifier = Modifier.padding(top = Module.half),
+                )
+                Row(
+                    Modifier.padding(top = Module.u),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Box(Modifier.size(6.dp).clip(CircleShape).background(riskColor))
+                    Text(
+                        text = riskWord,
+                        style = type.stencil,
+                        color = colors.onSurfaceVariant,
+                        modifier = Modifier.padding(start = Module.u),
+                    )
+                    if (finding.overlaps.isNotEmpty()) {
+                        Text(
+                            text = "· SHARED ITEMS COUNTED ONCE",
+                            style = type.stencil,
+                            color = colors.onSurfaceVariant,
+                            modifier = Modifier.padding(start = Module.u),
+                        )
+                    }
+                }
+            }
+            Column(horizontalAlignment = Alignment.End) {
+                Text(
+                    text = if (finding.frees.value > 0) Format.size(finding.frees) else "tidies",
+                    style = MaterialTheme.typography.titleLarge,
+                    color = if (selected) Crimson else colors.onSurface,
+                )
+                Text(
+                    text = Format.count(finding.items.size, "item"),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = colors.onSurfaceVariant,
+                )
+            }
+        }
+        HorizontalDivider(color = colors.outlineVariant)
+    }
+}
+
+@Composable
+private fun SelectionDot(selected: Boolean) {
+    val colors = MaterialTheme.colorScheme
+    Box(
+        Modifier
+            .padding(top = 6.dp)
+            .size(20.dp)
+            .clip(CircleShape)
+            .background(if (selected) Crimson else Color.Transparent),
+        contentAlignment = Alignment.Center,
+    ) {
+        if (!selected) {
+            Box(
+                Modifier
+                    .size(20.dp)
+                    .clip(CircleShape)
+                    .background(colors.surfaceContainerHighest),
             )
+        } else {
+            Text("✓", color = colors.onPrimary, style = MaterialTheme.typography.labelMedium)
         }
     }
 }
 
 @Composable
+private fun SectionHeading(text: String) {
+    val type = LocalStationType.current
+    Text(
+        text = text,
+        style = type.section,
+        color = MaterialTheme.colorScheme.onSurface,
+        modifier = Modifier
+            .padding(start = Module.x3, end = Module.x3, top = Module.x3, bottom = Module.u)
+            .semantics { heading() },
+    )
+}
+
+@Composable
+private fun Rule() = HorizontalDivider(
+    modifier = Modifier.padding(horizontal = Module.x3),
+    color = MaterialTheme.colorScheme.outline,
+)
+
+@Composable
+private fun Footnote(text: String) = Text(
+    text = text,
+    style = MaterialTheme.typography.bodySmall,
+    color = MaterialTheme.colorScheme.onSurfaceVariant,
+    modifier = Modifier.padding(horizontal = Module.x3, vertical = Module.u),
+)
+
+@Composable
 private fun ScanProgress(state: StationState) {
-    Column(Modifier.padding(horizontal = Module.x2)) {
+    Column(Modifier.padding(horizontal = Module.x3, vertical = Module.u)) {
         LinearProgressIndicator(
             modifier = Modifier.fillMaxWidth(),
-            color = HiVis,
+            color = Crimson,
             trackColor = MaterialTheme.colorScheme.surfaceContainerHighest,
         )
         Text(
@@ -264,19 +510,6 @@ private fun ScanProgress(state: StationState) {
 }
 
 @Composable
-private fun SectionLabel(text: String) {
-    val type = LocalStationType.current
-    Text(
-        text = text.uppercase(),
-        style = type.stencil,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier
-            .padding(start = Module.x2, end = Module.x2, top = Module.u)
-            .semantics { heading() },
-    )
-}
-
-@Composable
 private fun Notice(
     title: String,
     body: String,
@@ -284,30 +517,30 @@ private fun Notice(
     onAction: () -> Unit,
     accent: Color,
 ) {
-    Column(
-        Modifier
-            .padding(horizontal = Module.x2)
-            .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.surfaceContainer)
-            .border(1.dp, MaterialTheme.colorScheme.outline),
-    ) {
+    val type = LocalStationType.current
+    Row(Modifier.padding(horizontal = Module.x3, vertical = Module.x2)) {
         Box(
             Modifier
-                .fillMaxWidth()
-                .background(accent)
-                .padding(top = 4.dp),
+                .padding(top = 7.dp)
+                .size(6.dp)
+                .clip(CircleShape)
+                .background(accent),
         )
-        Column(Modifier.padding(Module.x2)) {
-            Text(title, style = MaterialTheme.typography.titleMedium)
+        Column(Modifier.padding(start = Module.x2)) {
+            Text(title, style = MaterialTheme.typography.titleLarge)
             Text(
                 text = body,
-                style = MaterialTheme.typography.bodySmall,
+                style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = Module.half),
             )
             if (action != null) {
-                TextButton(onClick = onAction, modifier = Modifier.padding(top = Module.half)) {
-                    Text(action)
+                TextButton(
+                    onClick = onAction,
+                    contentPadding = PaddingValues(0.dp),
+                    modifier = Modifier.padding(top = Module.half),
+                ) {
+                    Text(action.uppercase(), style = type.stencil, color = Crimson)
                 }
             }
         }
@@ -315,56 +548,47 @@ private fun Notice(
 }
 
 @Composable
-private fun ApprovalBar(
-    frees: Bytes,
-    items: Int,
-    working: Boolean,
-    onApprove: () -> Unit,
-) {
+private fun ApprovalBar(frees: Bytes, items: Int, working: Boolean, onApprove: () -> Unit) {
     val type = LocalStationType.current
+    val colors = MaterialTheme.colorScheme
     Column(
         Modifier
             .fillMaxWidth()
-            .background(Ink)
+            .background(colors.surfaceContainerLowest)
             .navigationBarsPadding()
-            .padding(horizontal = Module.x2, vertical = Module.u + 2.dp),
+            .padding(horizontal = Module.x3, vertical = Module.x2),
     ) {
-        HorizontalDivider(color = HiVis, thickness = 2.dp)
+        HorizontalDivider(color = colors.outline)
         Row(
-            modifier = Modifier
+            Modifier
                 .fillMaxWidth()
-                .padding(top = Module.u + 2.dp),
+                .padding(top = Module.x2),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Column(Modifier.weight(1f)) {
-                Text("APPROVED", style = type.stencil, color = Color(0xFFB9B4AA))
+                Text("APPROVED", style = type.stencil, color = colors.onSurfaceVariant)
                 Text(
                     text = "${Format.size(frees)} · ${Format.count(items, "item")}",
-                    style = type.amount.copy(textAlign = TextAlign.Start),
-                    color = Color(0xFFF4F1EA),
+                    style = MaterialTheme.typography.titleLarge,
+                    color = colors.onSurface,
                 )
             }
             Button(
                 onClick = onApprove,
                 enabled = !working,
-                colors = androidx.compose.material3.ButtonDefaults.buttonColors(
-                    containerColor = HiVis,
-                    contentColor = Ink,
-                ),
+                shape = RoundedCornerShape(Module.half),
+                colors = ButtonDefaults.buttonColors(containerColor = Crimson, contentColor = colors.onPrimary),
             ) {
-                Text(if (working) "WORKING" else "MOVE TO TRASH", style = type.containerLabel)
+                Text(if (working) "WORKING" else "MOVE TO TRASH", style = type.stencil)
             }
         }
     }
 }
 
-private fun colorFor(category: StorageCategory): Color = when (category) {
-    StorageCategory.APPS -> MetalGrey
-    StorageCategory.APP_DATA -> PaperBlue
-    StorageCategory.PHOTOS -> GlassGreen
-    StorageCategory.VIDEO -> OrganicBrown
-    StorageCategory.AUDIO -> HazardRed
-    StorageCategory.DOCUMENTS -> SignalAmber
-    StorageCategory.OTHER -> MetalGrey
-    StorageCategory.FREE -> Color.Transparent
-}
+private fun androidx.compose.foundation.lazy.LazyListScope.itemsIndexed(
+    items: List<StationState.Container>,
+    itemContent: @Composable (Int, StationState.Container) -> Unit,
+) = items(items.size) { index -> itemContent(index, items[index]) }
+
+@Composable
+private fun Spacer8() = Spacer(Modifier.height(Module.u))

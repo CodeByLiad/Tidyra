@@ -28,12 +28,12 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import digital.jinatra.tidyra.ai.ModelCatalog
 import digital.jinatra.tidyra.ui.format.Format
-import digital.jinatra.tidyra.ui.theme.GlassGreen
-import digital.jinatra.tidyra.ui.theme.HazardRed
-import digital.jinatra.tidyra.ui.theme.HiVis
-import digital.jinatra.tidyra.ui.theme.Ink
+import digital.jinatra.tidyra.ui.theme.Olive
+import digital.jinatra.tidyra.ui.theme.Crimson
+import digital.jinatra.tidyra.ui.theme.Crimson
+import digital.jinatra.tidyra.ui.theme.Paper
 import digital.jinatra.tidyra.ui.theme.LocalStationType
-import digital.jinatra.tidyra.ui.theme.MetalGrey
+import digital.jinatra.tidyra.ui.theme.Muted
 import digital.jinatra.tidyra.ui.theme.Module
 
 /**
@@ -66,14 +66,14 @@ fun ModelScreen(
             Column(
                 Modifier
                     .fillMaxWidth()
-                    .background(Ink)
+                    .background(MaterialTheme.colorScheme.surfaceContainer)
                     .padding(Module.x2),
             ) {
-                Text("ON-DEVICE AI", style = type.wordmark, color = androidx.compose.ui.graphics.Color(0xFFF4F1EA))
+                Text("ON-DEVICE AI", style = type.wordmark, color = MaterialTheme.colorScheme.onSurface)
                 Text(
                     text = "Gemma runs on this phone. Your file names, sizes and folders are never uploaded — the download below is the only network request Tidyra ever makes.",
                     style = MaterialTheme.typography.bodySmall,
-                    color = androidx.compose.ui.graphics.Color(0xFFB9B4AA),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = Module.u),
                 )
             }
@@ -153,9 +153,9 @@ private fun ModelRow(
                 .height(4.dp)
                 .background(
                     when {
-                        isLoaded -> GlassGreen
-                        incompatible -> MetalGrey
-                        entry.installed -> HiVis
+                        isLoaded -> Olive
+                        incompatible -> Muted
+                        entry.installed -> Crimson
                         else -> MaterialTheme.colorScheme.outline
                     },
                 ),
@@ -172,7 +172,7 @@ private fun ModelRow(
                     )
                 }
                 if (isLoaded) {
-                    Text("RUNNING", style = type.stencil, color = GlassGreen)
+                    Text("RUNNING", style = type.stencil, color = Olive)
                 }
             }
 
@@ -201,7 +201,7 @@ private fun ModelRow(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(top = Module.u),
-                    color = HiVis,
+                    color = Crimson,
                     trackColor = MaterialTheme.colorScheme.surfaceContainerHighest,
                 )
                 Row(
@@ -235,14 +235,14 @@ private fun ModelRow(
                         entry.installed ->
                             Button(
                                 onClick = onLoad,
-                                colors = ButtonDefaults.buttonColors(containerColor = HiVis, contentColor = Ink),
+                                colors = ButtonDefaults.buttonColors(containerColor = Crimson, contentColor = MaterialTheme.colorScheme.onPrimary),
                             ) { Text("Load") }
 
                         else ->
                             Button(
                                 onClick = onDownload,
                                 enabled = !incompatible,
-                                colors = ButtonDefaults.buttonColors(containerColor = HiVis, contentColor = Ink),
+                                colors = ButtonDefaults.buttonColors(containerColor = Crimson, contentColor = MaterialTheme.colorScheme.onPrimary),
                             ) { Text("Download") }
                     }
                     if (entry.installed) {
@@ -259,7 +259,7 @@ private fun ModelRow(
                 }
             }
 
-            entry.error?.let { Reason(it, HazardRed) }
+            entry.error?.let { Reason(it, Crimson) }
 
             Text(
                 text = "Licence: ${entry.model.licence}",

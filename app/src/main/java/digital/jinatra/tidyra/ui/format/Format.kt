@@ -41,6 +41,16 @@ object Format {
         }
     }
 
+    /**
+     * A share of the device. Anything real but under 1% reads "<1%" rather than "0%",
+     * which looks like a bug and tells the reader nothing.
+     */
+    fun percent(fraction: Float): String = when {
+        fraction <= 0f -> "0%"
+        fraction < 0.01f -> "<1%"
+        else -> String.format(Locale.US, "%.0f%%", fraction * 100)
+    }
+
     fun exact(bytes: Bytes): String =
         String.format(Locale.US, "%,d bytes", bytes.value)
 

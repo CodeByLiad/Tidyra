@@ -10,181 +10,181 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.DeviceFontFamilyName
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontVariation
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
+import digital.jinatra.tidyra.R
 
 /*
- * The Sorting Station world.
+ * Editorial-minimal.
  *
- * Municipal waste-sorting signage: hi-vis yellow on poured concrete, flat enamel plates
- * with hairline outlines, stencil-condensed caps for labels, and a fixed container
- * palette that codes category the same way on every screen.
+ * Warm paper ground, a high-contrast serif carrying the numbers, one crimson accent, and
+ * hairline rules doing the work that boxes and shadows usually do. Nothing is enclosed in
+ * a card: sections are separated by a 1px rule and generous space, the way a printed page
+ * separates them.
  *
- * Dynamic colour is deliberately not used. The container colours are the data encoding —
- * paper-blue means app data wherever it appears — and a wallpaper-derived scheme would
- * recolour the one thing in this app that has to stay constant.
+ * Dynamic colour is deliberately not used — crimson is the only accent, and a
+ * wallpaper-derived scheme would replace it with something arbitrary.
  */
 
-// -- The world's materials -------------------------------------------------------------
+// -- Materials -------------------------------------------------------------------------
 
-val HiVis = Color(0xFFFFC400)
-val HiVisDim = Color(0xFFE0AC00)
-val Ink = Color(0xFF171614)
-val InkSoft = Color(0xFF3A3733)
-val Concrete = Color(0xFFE8E3D9)
-val Plate = Color(0xFFF4F1EA)
-val PlateEdge = Color(0xFFCFC9BC)
-val Asphalt = Color(0xFF121110)
-val PlateNight = Color(0xFF1F1D1A)
-val PlateEdgeNight = Color(0xFF3A3733)
-val Bone = Color(0xFFF4F1EA)
-val Graphite = Color(0xFF5C574E)
-val GraphiteNight = Color(0xFFA9A299)
-
-/** Container colours. Fixed in both themes: this is the data encoding, not decoration. */
-val PaperBlue = Color(0xFF1C5FA8)
-val GlassGreen = Color(0xFF1E7A4B)
-val MetalGrey = Color(0xFF6E7378)
-val OrganicBrown = Color(0xFF7A5230)
-val HazardRed = Color(0xFFC8321E)
-val SignalAmber = Color(0xFFB7791F)
+val Paper = Color(0xFFF7F4EF)
+val PaperNight = Color(0xFF12100E)
+val Ink = Color(0xFF15110E)
+val InkNight = Color(0xFFF2EDE6)
+val Muted = Color(0xFF6B635A)
+val MutedNight = Color(0xFF9A9188)
+val Crimson = Color(0xFFB3122E)
+val CrimsonNight = Color(0xFFE2546B)
+val Rule = Color(0xFFE2DCD2)
+val RuleNight = Color(0xFF2A2724)
+val Olive = Color(0xFF4C6B4F)
+val Amber = Color(0xFF9A6B14)
 
 private val LightScheme = lightColorScheme(
-    primary = Ink,
-    onPrimary = Bone,
-    primaryContainer = HiVis,
-    onPrimaryContainer = Ink,
-    secondary = PaperBlue,
-    onSecondary = Bone,
-    secondaryContainer = Color(0xFFD3E0F0),
-    onSecondaryContainer = Color(0xFF0E2E52),
-    tertiary = GlassGreen,
-    onTertiary = Bone,
-    background = Concrete,
+    primary = Crimson,
+    onPrimary = Paper,
+    primaryContainer = Color(0xFFF6DCE0),
+    onPrimaryContainer = Color(0xFF5C0917),
+    secondary = Ink,
+    onSecondary = Paper,
+    background = Paper,
     onBackground = Ink,
-    surface = Concrete,
+    surface = Paper,
     onSurface = Ink,
-    surfaceContainerLowest = Plate,
-    surfaceContainerLow = Plate,
-    surfaceContainer = Plate,
-    surfaceContainerHigh = Color(0xFFEDE9E1),
-    surfaceContainerHighest = Color(0xFFE2DDD2),
-    surfaceVariant = Color(0xFFDDD7CA),
-    onSurfaceVariant = Graphite,
-    outline = PlateEdge,
-    outlineVariant = Color(0xFFDCD6C8),
-    error = HazardRed,
-    onError = Bone,
-    errorContainer = Color(0xFFF7DAD5),
-    onErrorContainer = Color(0xFF5E1407),
+    surfaceContainerLowest = Color(0xFFFFFDFA),
+    surfaceContainerLow = Paper,
+    surfaceContainer = Color(0xFFF2EEE7),
+    surfaceContainerHigh = Color(0xFFEDE8E0),
+    surfaceContainerHighest = Rule,
+    surfaceVariant = Color(0xFFEDE8E0),
+    onSurfaceVariant = Muted,
+    outline = Rule,
+    outlineVariant = Color(0xFFEDE8E0),
+    error = Crimson,
+    onError = Paper,
     inverseSurface = Ink,
-    inverseOnSurface = Bone,
-    inversePrimary = HiVis,
+    inverseOnSurface = Paper,
 )
 
 private val DarkScheme = darkColorScheme(
-    primary = HiVis,
-    onPrimary = Ink,
-    primaryContainer = HiVisDim,
-    onPrimaryContainer = Ink,
-    secondary = Color(0xFF7FB1E8),
-    onSecondary = Color(0xFF0E2E52),
-    secondaryContainer = Color(0xFF1B3C60),
-    onSecondaryContainer = Color(0xFFD3E0F0),
-    tertiary = Color(0xFF6ECB99),
-    onTertiary = Color(0xFF07301B),
-    background = Asphalt,
-    onBackground = Bone,
-    surface = Asphalt,
-    onSurface = Bone,
-    surfaceContainerLowest = Color(0xFF0C0B0A),
-    surfaceContainerLow = PlateNight,
-    surfaceContainer = PlateNight,
-    surfaceContainerHigh = Color(0xFF282521),
-    surfaceContainerHighest = Color(0xFF322E29),
-    surfaceVariant = Color(0xFF2A2724),
-    onSurfaceVariant = GraphiteNight,
-    outline = PlateEdgeNight,
-    outlineVariant = Color(0xFF2A2724),
-    error = Color(0xFFE8705C),
-    onError = Color(0xFF3B0C03),
-    errorContainer = Color(0xFF5E1407),
-    onErrorContainer = Color(0xFFF7DAD5),
-    inverseSurface = Bone,
-    inverseOnSurface = Ink,
-    inversePrimary = Ink,
+    primary = CrimsonNight,
+    onPrimary = Color(0xFF2B0309),
+    primaryContainer = Color(0xFF4A0A16),
+    onPrimaryContainer = Color(0xFFF6DCE0),
+    secondary = InkNight,
+    onSecondary = PaperNight,
+    background = PaperNight,
+    onBackground = InkNight,
+    surface = PaperNight,
+    onSurface = InkNight,
+    surfaceContainerLowest = Color(0xFF0B0A09),
+    surfaceContainerLow = Color(0xFF17150F),
+    surfaceContainer = Color(0xFF1B1916),
+    surfaceContainerHigh = Color(0xFF23201C),
+    surfaceContainerHighest = RuleNight,
+    surfaceVariant = Color(0xFF23201C),
+    onSurfaceVariant = MutedNight,
+    outline = RuleNight,
+    outlineVariant = Color(0xFF23201C),
+    error = CrimsonNight,
+    onError = Color(0xFF2B0309),
+    inverseSurface = InkNight,
+    inverseOnSurface = PaperNight,
 )
 
 // -- Type ------------------------------------------------------------------------------
 
-/**
- * Signage caps. The condensed width of the system face, so the app carries no font files
- * and still gets the compression that makes a label read as signage rather than as prose.
- */
-val Signage = FontFamily(
-    Font(DeviceFontFamilyName("sans-serif-condensed"), weight = FontWeight.Normal),
-    Font(DeviceFontFamilyName("sans-serif-condensed"), weight = FontWeight.Medium),
-    Font(DeviceFontFamilyName("sans-serif-condensed"), weight = FontWeight.Bold),
+/** Playfair Display, bundled under the OFL. The display voice: headlines and every figure. */
+@OptIn(androidx.compose.ui.text.ExperimentalTextApi::class)
+val Editorial = FontFamily(
+    Font(
+        R.font.playfair_display,
+        weight = FontWeight.Normal,
+        variationSettings = FontVariation.Settings(FontVariation.weight(400)),
+    ),
+    Font(
+        R.font.playfair_display,
+        weight = FontWeight.Medium,
+        variationSettings = FontVariation.Settings(FontVariation.weight(500)),
+    ),
+    Font(
+        R.font.playfair_display,
+        weight = FontWeight.SemiBold,
+        variationSettings = FontVariation.Settings(FontVariation.weight(600)),
+    ),
+    Font(
+        R.font.playfair_display,
+        weight = FontWeight.Bold,
+        variationSettings = FontVariation.Settings(FontVariation.weight(700)),
+    ),
 )
 
 private val base = Typography()
 
 private val TidyraTypography = Typography(
-    displayLarge = base.displayLarge.copy(fontFamily = Signage, fontWeight = FontWeight.Bold, letterSpacing = (-0.02).em),
-    displayMedium = base.displayMedium.copy(fontFamily = Signage, fontWeight = FontWeight.Bold, letterSpacing = (-0.02).em),
-    displaySmall = base.displaySmall.copy(fontFamily = Signage, fontWeight = FontWeight.Bold),
-    headlineLarge = base.headlineLarge.copy(fontFamily = Signage, fontWeight = FontWeight.Bold),
-    headlineMedium = base.headlineMedium.copy(fontFamily = Signage, fontWeight = FontWeight.Bold),
-    titleLarge = base.titleLarge.copy(fontWeight = FontWeight.Medium),
-    labelLarge = base.labelLarge.copy(fontFamily = Signage, fontWeight = FontWeight.Bold, letterSpacing = 0.1.em),
-    labelMedium = base.labelMedium.copy(fontFamily = Signage, fontWeight = FontWeight.Bold, letterSpacing = 0.12.em),
-    labelSmall = base.labelSmall.copy(fontFamily = Signage, fontWeight = FontWeight.Bold, letterSpacing = 0.14.em),
+    displayLarge = base.displayLarge.copy(fontFamily = Editorial, fontWeight = FontWeight.Bold, letterSpacing = (-0.03).em),
+    displayMedium = base.displayMedium.copy(fontFamily = Editorial, fontWeight = FontWeight.Bold, letterSpacing = (-0.03).em),
+    displaySmall = base.displaySmall.copy(fontFamily = Editorial, fontWeight = FontWeight.Bold),
+    headlineLarge = base.headlineLarge.copy(fontFamily = Editorial, fontWeight = FontWeight.Bold),
+    headlineMedium = base.headlineMedium.copy(fontFamily = Editorial, fontWeight = FontWeight.Bold),
+    headlineSmall = base.headlineSmall.copy(fontFamily = Editorial, fontWeight = FontWeight.Bold),
+    titleLarge = base.titleLarge.copy(fontFamily = Editorial, fontWeight = FontWeight.Bold),
+    titleMedium = base.titleMedium.copy(fontWeight = FontWeight.Medium),
 )
 
-/** The station's own styles, for the places the Material scale has no role for. */
+/** Styles the Material scale has no role for. Field names kept stable across redesigns. */
 data class StationType(
+    /** The masthead. Serif, tight, like a paper's name. */
     val wordmark: TextStyle = TextStyle(
-        fontFamily = Signage,
+        fontFamily = Editorial,
         fontWeight = FontWeight.Bold,
-        fontSize = 15.sp,
-        letterSpacing = 0.22.em,
+        fontSize = 28.sp,
+        letterSpacing = (-0.02).em,
     ),
+    /** The hero figure: the one number the screen is about. */
     val figure: TextStyle = TextStyle(
-        fontFamily = Signage,
+        fontFamily = Editorial,
         fontWeight = FontWeight.Bold,
-        fontSize = 46.sp,
-        lineHeight = 46.sp,
-        letterSpacing = (-0.01).em,
+        fontSize = 64.sp,
+        lineHeight = 64.sp,
+        letterSpacing = (-0.04).em,
     ),
+    /** A statistic in a column of statistics. */
     val containerLabel: TextStyle = TextStyle(
-        fontFamily = Signage,
+        fontFamily = Editorial,
         fontWeight = FontWeight.Bold,
-        fontSize = 13.sp,
-        letterSpacing = 0.1.em,
+        fontSize = 26.sp,
+        letterSpacing = (-0.02).em,
     ),
+    /** Small tracked caps: the only sans voice that shouts. */
     val stencil: TextStyle = TextStyle(
-        fontFamily = Signage,
-        fontWeight = FontWeight.Bold,
+        fontWeight = FontWeight.Medium,
         fontSize = 11.sp,
         letterSpacing = 0.14.em,
     ),
+    /** A value at the end of a row. */
     val amount: TextStyle = TextStyle(
-        fontFamily = Signage,
+        fontWeight = FontWeight.Medium,
+        fontSize = 14.sp,
+    ),
+    /** Section headings, serif, set like a magazine's. */
+    val section: TextStyle = TextStyle(
+        fontFamily = Editorial,
         fontWeight = FontWeight.Bold,
-        fontSize = 16.sp,
-        textAlign = TextAlign.End,
+        fontSize = 24.sp,
+        letterSpacing = (-0.02).em,
     ),
 )
 
 val LocalStationType = staticCompositionLocalOf { StationType() }
 
-/** The single 8dp module. Every gap in the app is a multiple of this and nothing is off-grid. */
+/** The single 8dp module. Every gap is a multiple of it; nothing sits off-grid. */
 object Module {
     val u = 8.dp
     val half = 4.dp

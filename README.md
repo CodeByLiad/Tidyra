@@ -67,4 +67,4 @@ Early. The scan engine, duplicate finder, app inventory, Shizuku bridge, trash, 
 
 ## Licence
 
-GPL-3.0-or-later. The bundled Playfair Display is under the SIL Open Font License (see `app/src/main/res/font/OFL.txt`). Gemma models are downloaded by you, under Google's Gemma Terms of Use, and are not redistributed here.
+GPL-3.0-or-later. The bundled Playfair Display is under the SIL Open Font License (see `licenses/OFL-PlayfairDisplay.txt`). Gemma models are downloaded by you, under Google's Gemma Terms of Use, and are not redistributed here.
