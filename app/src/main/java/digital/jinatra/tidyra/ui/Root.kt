@@ -59,7 +59,6 @@ import digital.jinatra.tidyra.ui.station.ApprovalBar
 import digital.jinatra.tidyra.ui.station.StationScreen
 import digital.jinatra.tidyra.ui.station.StationState
 import digital.jinatra.tidyra.ui.trash.TrashScreen
-import digital.jinatra.tidyra.ui.theme.Crimson
 import digital.jinatra.tidyra.ui.theme.LocalStationType
 import digital.jinatra.tidyra.ui.theme.Module
 
@@ -344,7 +343,7 @@ private fun SectionTabs(current: Section, onSelect: (Section) -> Unit) {
                             interactionSource = remember { MutableInteractionSource() },
                             indication = null,
                         ) { onSelect(entry) }
-                        .padding(vertical = Module.u + 2.dp),
+                        .padding(vertical = Module.u),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
                     // The weight never changes with state: bold text is wider, so an

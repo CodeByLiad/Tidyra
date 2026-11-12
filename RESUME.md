@@ -1,14 +1,17 @@
 # Resume Tidyra here
 
-**Checkpoint: 2026-11-13, 04:00.** Builds clean, 13 unit tests pass, verified end to end on an emulator. Finish review applied.
+**Checkpoint: 2026-11-13, 04:45.** Builds clean, 13 unit tests pass, verified end to end on an emulator. Finish review applied, verdict applied.
 
 ## Read first
 `PRD.md` (what it should become) · `PRODUCT.md` (product truth, platform limits) · `DESIGN.md` (visual system, written at finish) · `.impeccable/build-notes.md` (toolchain, version pins) · `.impeccable/surfaces/digital-jinatra-tidyra-ui-mainactivity-kt-1037687c.md` (direction contract — its OWN-WORLD block is superseded by the pinned editorial world; its four raises still bind).
 
 ## Visual direction
-Editorial-minimal, pinned by Liad from a reference. Nude paper `#F3EDE3` / ink `#15110E`, dark ground `#131110`, one crimson — `#C41733` in light (5.1:1 on paper), `#FF5A72` in dark, always read from `MaterialTheme.colorScheme.primary` so the theme supplies it. Playfair Display (bundled, OFL) for every headline and figure. Hairline rules, no cards, no elevation-as-decoration.
+Editorial-minimal, pinned by Liad from a reference. Nude paper `#F3EDE3` / ink `#15110E`, dark ground `#131110`, one crimson — `#C41733` in light (5.18:1 on paper), `#FF5A72` in dark, always read from `MaterialTheme.colorScheme.primary` so the theme supplies it. Playfair Display (bundled, OFL) for every headline and figure, `StationType.amount` included — a figure must never arrive in Roboto. Hairline rules, no cards, no elevation-as-decoration.
 
-**The four disciplines:** one shared size scale (bars are a true fraction of the device, never re-normalised) · one 8dp module · exact sizes (`756 MB`, `<1%`, never `0%`) · shared items counted once.
+**The four disciplines:** one shared size scale (drawn against the device, never re-normalised) · one 8dp module · exact sizes (`756 MB`, `<1%`, never `0%`) · shared items counted once.
+
+## How storage is drawn
+One stacked `CapacityRule` for the whole page, not a track per row. Seven per-row tracks against a whole-device denominator meant five of seven categories drew as empty track — an honest scale rendered dishonestly. The rule carries true shares and the free span; the rows carry rank, label, a dotted leader and the figure. The hairline between segments is cut out of the segment before it, never added, so the rule still measures the device exactly.
 
 ## Verified on the emulator (`cueplay_pixel`, API 35, x86_64)
 Seeded with ~260 MB of realistic mess, then exercised:
@@ -31,6 +34,9 @@ Seeded with ~260 MB of realistic mess, then exercised:
 - Apps/App data are not walkable files; apps cannot be trashed, only uninstalled per row.
 - `keepRank` is separator-agnostic so it is testable off-device.
 - Gemma on Hugging Face is gated (401). SmolLM 135M is open and in the catalogue for that reason.
+- A minimum-visible *fraction* is not a minimum visible *length*: 0.4% of a 115dp track is half a pixel. Floors for drawn marks belong in px, or the geometry eats them.
+- The app owns its light/dark switch, so `cmd uimode night yes` does not change the theme — press the control.
+- `uiautomator dump` only sees what a lazy list has composed; scroll before concluding a row is absent.
 
 ## Build / test / install
 ```
@@ -40,10 +46,10 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 ```
 Pins: AGP 8.13.2, Kotlin 2.4.21, Compose 1.11.4, material3 1.4.0, okhttp 4.12.0, compileSdk 36.
 Emulator permissions without tapping: `adb shell appops set <pkg> MANAGE_EXTERNAL_STORAGE allow` and `... GET_USAGE_STATS allow`.
+Scratchpad helpers: `seed.sh` (push to `/data/local/tmp`, run with `sh`), `capture.sh` (scroll-aware taps, verifies the foreground activity and an on-screen string after every screencap).
 
 ## Next
 1. **GitHub push is still blocked** by this session's permission classifier. Everything is committed on `main`; run it yourself:
    `gh repo create CodeByLiad/Tidyra --public --source=. --remote=origin --push`
 2. Verify Shizuku on hardware.
-3. The signature interaction from the contract — the proposed span as a hatch, retracting on confirmation — is a flat alpha overlay with no authored motion.
-4. Off-grid paddings flagged by the review (`Module.u + 2.dp` and friends) are still there, deliberately, pending a decision.
+3. The signature interaction from the contract — the proposed span retracting on confirmation — is a flat alpha overlay with no authored motion. The stacked rule now carries the proposal in the accent; animating that retraction is the remaining half.

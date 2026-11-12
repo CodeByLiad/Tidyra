@@ -42,7 +42,7 @@
 
         <!-- The rule that runs under every section heading in the app -->
         <path
-            android:fillColor="#D6203F"
+            android:fillColor="#C41733"
             android:pathData="M27,88 L81,88 L81,90.5 L27,90.5 Z" />
     </group>
 </vector>

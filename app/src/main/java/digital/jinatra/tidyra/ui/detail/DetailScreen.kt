@@ -33,9 +33,9 @@ import digital.jinatra.tidyra.core.model.FindingKind
 import digital.jinatra.tidyra.core.model.Risk
 import digital.jinatra.tidyra.ui.common.AppIcon
 import digital.jinatra.tidyra.ui.common.CheckMark
+import digital.jinatra.tidyra.ui.common.ChevronLeftMark
 import digital.jinatra.tidyra.ui.format.Format
 import digital.jinatra.tidyra.ui.theme.Amber
-import digital.jinatra.tidyra.ui.theme.Crimson
 import digital.jinatra.tidyra.ui.theme.LocalStationType
 import digital.jinatra.tidyra.ui.theme.Module
 import digital.jinatra.tidyra.ui.theme.Olive
@@ -87,9 +87,7 @@ fun FindingDetailScreen(
             Column(
                 Modifier.padding(start = Module.x3, end = Module.x3, top = Module.x2),
             ) {
-                TextButton(onClick = onBack, contentPadding = PaddingValues(0.dp)) {
-                    Text("← BACK", style = type.stencil, color = MaterialTheme.colorScheme.primary)
-                }
+                BackButton(onBack)
                 Text(
                     text = finding.title,
                     style = type.section,
@@ -178,7 +176,7 @@ fun FindingDetailScreen(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Column(Modifier.weight(1f)) {
-                    Text("PICKED", style = type.stencil, color = colors.onSurfaceVariant)
+                    Text("SELECTED", style = type.stencil, color = colors.onSurfaceVariant)
                     Text(
                         text = "${Format.size(chosenBytes)} · ${chosen.size} of ${finding.items.size}",
                         style = MaterialTheme.typography.titleLarge,
@@ -231,9 +229,7 @@ fun CategoryDetailScreen(
             Column(
                 Modifier.padding(start = Module.x3, end = Module.x3, top = Module.x2, bottom = Module.x2),
             ) {
-                TextButton(onClick = onBack, contentPadding = PaddingValues(0.dp)) {
-                    Text("← BACK", style = type.stencil, color = MaterialTheme.colorScheme.primary)
-                }
+                BackButton(onBack)
                 Text(
                     text = title,
                     style = type.section,
@@ -336,7 +332,7 @@ private fun ItemRow(
             Column(horizontalAlignment = Alignment.End) {
                 Text(
                     text = Format.size(item.size),
-                    style = MaterialTheme.typography.bodyLarge,
+                    style = type.amount,
                     color = colors.onSurface,
                 )
                 if (action != null) {
@@ -362,3 +358,19 @@ private fun dateOf(millis: Long): String =
     if (millis <= 0) "never opened" else formatter.format(Date(millis))
 
 private fun unusedColor(): Color = Color.Unspecified
+
+/**
+ * The way back. The arrow is drawn, not typed: a Unicode arrow set in the label's font
+ * arrives at the font's weight, not the mark set's, and reads as a character beside caps.
+ */
+@Composable
+private fun BackButton(onBack: () -> Unit) {
+    val type = LocalStationType.current
+    val color = MaterialTheme.colorScheme.primary
+    TextButton(onClick = onBack, contentPadding = PaddingValues(0.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            ChevronLeftMark(color, 14.dp, Modifier.padding(end = Module.half))
+            Text("BACK", style = type.stencil, color = color)
+        }
+    }
+}

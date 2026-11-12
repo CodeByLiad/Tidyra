@@ -78,7 +78,7 @@ A one-tap clean. A score or rating out of 100. Notifications nagging about stora
 
 ## 7. Design
 
-Editorial-minimal, pinned by the owner from a reference: warm cream ground, serif display at large sizes, a single crimson accent, hairline rules, generous whitespace, ranked bars with values right-aligned.
+Editorial-minimal, pinned by the owner from a reference: warm cream ground, serif display at large sizes, a single crimson accent, hairline rules, generous whitespace, and a ranked list whose values are right-aligned and carried across by a dotted leader. Proportion is drawn once, on a single stacked rule measuring the whole device, rather than as a track per row.
 
 Four disciplines carry over from the earlier direction round and are binding:
 

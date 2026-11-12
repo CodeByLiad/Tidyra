@@ -1,0 +1,222 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-13T00:00:00Z",
+  "title": "Design System: Tidyra",
+  "extensions": {
+    "colorMeta": {
+      "crimson": {
+        "role": "primary",
+        "displayName": "Press Crimson",
+        "canonical": "#C41733",
+        "tonalRamp": ["#2B0309", "#4A0A16", "#6E0F22", "#93142B", "#C41733", "#E24A61", "#FF5A72", "#F7D9DE"]
+      },
+      "crimson-night": {
+        "role": "primary",
+        "displayName": "Press Crimson (Night)",
+        "canonical": "#FF5A72",
+        "tonalRamp": ["#2B0309", "#4A0A16", "#6E0F22", "#A3243C", "#D13E58", "#FF5A72", "#FF8F9F", "#F6DCE0"]
+      },
+      "olive": {
+        "role": "secondary",
+        "displayName": "Field Olive",
+        "canonical": "#4C6B4F",
+        "tonalRamp": ["#141C15", "#22301F", "#31452F", "#3E573F", "#4C6B4F", "#6E8C70", "#9BB49C", "#D4E0D4"]
+      },
+      "amber": {
+        "role": "tertiary",
+        "displayName": "Caution Amber",
+        "canonical": "#9A6B14",
+        "tonalRamp": ["#1F1503", "#35240A", "#4D3610", "#6F4C12", "#9A6B14", "#BE8C33", "#D9B377", "#F0E0C2"]
+      },
+      "paper": {
+        "role": "neutral",
+        "displayName": "Warm Paper",
+        "canonical": "#F3EDE3",
+        "tonalRamp": ["#131110", "#23201C", "#3A352E", "#6B635A", "#9A9188", "#DED6C8", "#F3EDE3", "#FAF6EE"]
+      },
+      "paper-night": {
+        "role": "neutral",
+        "displayName": "Night Stock",
+        "canonical": "#131110",
+        "tonalRamp": ["#0B0A09", "#131110", "#1B1916", "#23201C", "#2A2724", "#6B635A", "#9A9188", "#F2EDE6"]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Press Ink",
+        "canonical": "#15110E",
+        "tonalRamp": ["#0B0A09", "#15110E", "#262119", "#3A332A", "#554C41", "#6B635A", "#9A9188", "#DED6C8"]
+      },
+      "ink-night": {
+        "role": "neutral",
+        "displayName": "Paper-White Ink",
+        "canonical": "#F2EDE6",
+        "tonalRamp": ["#15110E", "#2A2724", "#4A443C", "#6B635A", "#9A9188", "#C7C0B7", "#F2EDE6", "#FAF6EE"]
+      },
+      "muted": {
+        "role": "neutral",
+        "displayName": "Pencil Grey",
+        "canonical": "#6B635A",
+        "tonalRamp": ["#17140F", "#2A2724", "#413A33", "#564E45", "#6B635A", "#9A9188", "#C4BCB1", "#EDE8E0"]
+      },
+      "rule": {
+        "role": "neutral",
+        "displayName": "Hairline",
+        "canonical": "#DED6C8",
+        "tonalRamp": ["#2A2724", "#413A33", "#6B635A", "#9A9188", "#C4BCB1", "#DED6C8", "#EDE8E0", "#FAF6EE"]
+      },
+      "surface-container-lowest": {
+        "role": "neutral",
+        "displayName": "Lifted Paper",
+        "canonical": "#FAF6EE",
+        "tonalRamp": ["#0B0A09", "#17150F", "#1B1916", "#23201C", "#DED6C8", "#EDE6D9", "#F3EDE3", "#FAF6EE"]
+      }
+    },
+    "typographyMeta": {
+      "wordmark": { "displayName": "Wordmark", "purpose": "The masthead. Serif, tight, like a paper's name. One per shell." },
+      "figure": { "displayName": "Figure", "purpose": "The hero figure: the one number the screen is about. One per screen, in crimson." },
+      "container-label": { "displayName": "Container Label", "purpose": "A statistic in a column of statistics (Apps / App data / Media)." },
+      "section": { "displayName": "Section", "purpose": "Section headings, serif, set like a magazine's." },
+      "amount": { "displayName": "Amount", "purpose": "The value at the end of a row. Playfair, like every other figure in the app." },
+      "stencil": { "displayName": "Stencil", "purpose": "Small tracked caps: the only sans voice that shouts. Buttons, text actions, risk words, field labels. Never a kicker." },
+      "title-large": { "displayName": "Title Large", "purpose": "Finding, notice and app titles. Playfair bold." },
+      "body-large": { "displayName": "Body Large", "purpose": "Tab words and category row labels." },
+      "body-medium": { "displayName": "Body Medium", "purpose": "Plain-language detail under a title; stat labels." },
+      "body-small": { "displayName": "Body Small", "purpose": "Footnotes, item counts, scan progress." }
+    },
+    "shadows": [],
+    "motion": [
+      { "name": "tab-tint", "value": "tween(220ms) on colour", "purpose": "The active tab's colour easing between pencil grey and crimson." },
+      { "name": "tab-rule", "value": "tween(220ms) on alpha", "purpose": "The 2dp underline fading in and out. The rule is always drawn; only its alpha animates, so column widths never shift." },
+      { "name": "approval-bar-enter", "value": "slideInVertically { it }", "purpose": "The approval bar rising from the bottom edge when the plan becomes non-empty." },
+      { "name": "approval-bar-exit", "value": "slideOutVertically { it }", "purpose": "The approval bar leaving when the plan empties." }
+    ],
+    "breakpoints": []
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The one filled control: SCAN THIS PHONE, MOVE TO TRASH. Crimson from the theme, stencil caps, 4dp corners.",
+      "html": "<button class=\"ds-btn-primary\">MOVE TO TRASH</button>",
+      "css": ".ds-btn-primary { background: #C41733; color: #F3EDE3; font-family: system-ui, sans-serif; font-size: 11px; font-weight: 500; letter-spacing: 0.14em; padding: 14px 24px; border: none; border-radius: 4px; cursor: pointer; transition: background 0.2s; } .ds-btn-primary:hover { background: #A3122B; } .ds-btn-primary:focus-visible { outline: 2px solid #C41733; outline-offset: 2px; } .ds-btn-primary:disabled { background: #DED6C8; color: #6B635A; cursor: default; }"
+    },
+    {
+      "name": "Stencil Text Button",
+      "kind": "button",
+      "refersTo": "text-button-stencil",
+      "description": "The app's default affordance: tracked caps on the page margin, crimson when it is the live action. Zero content padding.",
+      "html": "<button class=\"ds-btn-stencil\">GRANT ACCESS</button>",
+      "css": ".ds-btn-stencil { background: none; border: none; padding: 0; color: #C41733; font-family: system-ui, sans-serif; font-size: 11px; font-weight: 500; letter-spacing: 0.14em; cursor: pointer; transition: opacity 0.2s; } .ds-btn-stencil:hover { opacity: 0.72; } .ds-btn-stencil:focus-visible { outline: 2px solid #C41733; outline-offset: 3px; } .ds-btn-stencil[data-quiet] { color: #6B635A; }"
+    },
+    {
+      "name": "Section Tabs",
+      "kind": "nav",
+      "refersTo": "tab",
+      "description": "Five text tabs between the 24dp page margins, closed by a full-bleed rule. Weight never changes with state; colour and a 2dp underline carry it, both eased over 220ms.",
+      "html": "<nav class=\"ds-tabs\"><button class=\"ds-tab ds-tab--active\" aria-selected=\"true\">Storage</button><button class=\"ds-tab\">Apps</button><button class=\"ds-tab\">Organise</button><button class=\"ds-tab\">Trash</button><button class=\"ds-tab\">AI</button></nav>",
+      "css": ".ds-tabs { display: flex; justify-content: space-between; padding: 0 24px; border-bottom: 1px solid #DED6C8; background: #F3EDE3; } .ds-tab { background: none; border: none; cursor: pointer; padding: 8px 0; font-family: system-ui, sans-serif; font-size: 16px; font-weight: 500; color: #6B635A; border-bottom: 2px solid transparent; transition: color 220ms, border-color 220ms; } .ds-tab:hover { color: #15110E; } .ds-tab:focus-visible { outline: 2px solid #C41733; outline-offset: 2px; } .ds-tab--active { color: #C41733; border-bottom-color: #C41733; }"
+    },
+    {
+      "name": "Capacity Rule",
+      "kind": "custom",
+      "refersTo": "capacity-rule",
+      "description": "The device drawn once: a 16dp stacked bar on the shared denominator, ink segments in list order, crimson for the proposed span, hairline track for free space, 1dp gaps cut out of the segments.",
+      "html": "<div class=\"ds-capacity\" role=\"img\" aria-label=\"1.3 gigabytes used of 9.7 gigabytes\"><span class=\"ds-capacity__seg\" style=\"width:3%\"></span><span class=\"ds-capacity__seg\" style=\"width:8%\"></span><span class=\"ds-capacity__seg ds-capacity__seg--proposed\" style=\"width:2%\"></span><span class=\"ds-capacity__seg\" style=\"width:1%\"></span></div>",
+      "css": ".ds-capacity { display: flex; width: 100%; height: 16px; background: #DED6C8; margin: 8px 0; } .ds-capacity__seg { background: #15110E; border-right: 1px solid #DED6C8; } .ds-capacity__seg--proposed { background: #C41733; }"
+    },
+    {
+      "name": "Category Row",
+      "kind": "custom",
+      "refersTo": "category-row",
+      "description": "A contents-page line: rank, label, dotted leader, exact size and percentage in Playfair, drawn chevron. At least 48dp tall.",
+      "html": "<button class=\"ds-cat-row\"><span class=\"ds-cat-row__rank\">2</span><span class=\"ds-cat-row__label\">App data</span><span class=\"ds-cat-row__leader\"></span><span class=\"ds-cat-row__amount\">824 MB&nbsp;&nbsp;(8%)</span><svg class=\"ds-cat-row__chev\" width=\"16\" height=\"16\" viewBox=\"0 0 16 16\" fill=\"none\" stroke=\"#6B635A\" stroke-width=\"1.92\" stroke-linecap=\"round\"><path d=\"M6.1 4.2 L10.2 8 L6.1 11.8\"/></svg></button>",
+      "css": ".ds-cat-row { display: flex; align-items: center; width: 100%; min-height: 48px; padding: 8px 24px; background: none; border: none; cursor: pointer; text-align: left; } .ds-cat-row:hover { background: #EDE6D9; } .ds-cat-row:focus-visible { outline: 2px solid #C41733; outline-offset: -2px; } .ds-cat-row__rank { width: 20px; font-family: system-ui, sans-serif; font-size: 14px; color: #6B635A; } .ds-cat-row__label { font-family: system-ui, sans-serif; font-size: 16px; color: #15110E; white-space: nowrap; } .ds-cat-row__leader { flex: 1; height: 1px; margin: 0 8px; background-image: radial-gradient(circle, #DED6C8 0.5px, transparent 0.5px); background-size: 4px 1px; background-repeat: repeat-x; } .ds-cat-row__amount { font-family: 'Playfair Display', Georgia, serif; font-weight: 700; font-size: 15px; color: #15110E; } .ds-cat-row__chev { margin-left: 4px; }"
+    },
+    {
+      "name": "Finding Row",
+      "kind": "card",
+      "refersTo": "finding-row",
+      "description": "A proposal, not a notification: selection ring in a full target, Playfair title, plain detail, risk pip and tracked-caps risk word, what it frees at the right. Closed by a faint hairline.",
+      "html": "<div class=\"ds-finding\"><button class=\"ds-finding__ring\" aria-pressed=\"true\"><svg width=\"22\" height=\"22\" viewBox=\"0 0 22 22\"><circle cx=\"11\" cy=\"11\" r=\"11\" fill=\"#C41733\"/><path d=\"M4.0 9.2 L6.5 11.8 L11.3 6.0\" transform=\"translate(2.8,2.8)\" fill=\"none\" stroke=\"#F3EDE3\" stroke-width=\"1.5\" stroke-linecap=\"round\"/></svg></button><div class=\"ds-finding__body\"><h3 class=\"ds-finding__title\">Duplicate photos</h3><p class=\"ds-finding__detail\">41 files are byte-for-byte identical to another file on this phone.</p><div class=\"ds-finding__meta\"><span class=\"ds-finding__pip\"></span><span class=\"ds-finding__risk\">SAFE</span><span class=\"ds-finding__risk\">· SHARED ITEMS COUNTED ONCE</span></div></div><div class=\"ds-finding__right\"><span class=\"ds-finding__frees\">756 MB</span><span class=\"ds-finding__count\">41 items</span></div></div>",
+      "css": ".ds-finding { display: flex; align-items: flex-start; gap: 16px; padding: 16px 24px; background: #F3EDE3; border-bottom: 1px solid #EDE8E0; cursor: pointer; } .ds-finding:hover { background: #EDE6D9; } .ds-finding__ring { background: none; border: none; padding: 13px; cursor: pointer; } .ds-finding__ring:focus-visible { outline: 2px solid #C41733; outline-offset: -4px; border-radius: 50%; } .ds-finding__body { flex: 1; } .ds-finding__title { margin: 0; font-family: 'Playfair Display', Georgia, serif; font-weight: 700; font-size: 22px; color: #15110E; } .ds-finding__detail { margin: 4px 0 0; font-family: system-ui, sans-serif; font-size: 14px; color: #6B635A; } .ds-finding__meta { display: flex; align-items: center; gap: 8px; margin-top: 8px; } .ds-finding__pip { width: 6px; height: 6px; border-radius: 50%; background: #4C6B4F; } .ds-finding__risk { font-family: system-ui, sans-serif; font-size: 11px; font-weight: 500; letter-spacing: 0.14em; color: #6B635A; } .ds-finding__right { display: flex; flex-direction: column; align-items: flex-end; } .ds-finding__frees { font-family: 'Playfair Display', Georgia, serif; font-weight: 700; font-size: 22px; color: #C41733; } .ds-finding__count { font-family: system-ui, sans-serif; font-size: 12px; color: #6B635A; }"
+    },
+    {
+      "name": "Approval Bar",
+      "kind": "custom",
+      "refersTo": "approval-bar",
+      "description": "The one floating plate. Lifted paper, a hairline above it, SELECTED in tracked caps over the plan's total, crimson button at the right. Slides in when the plan is non-empty.",
+      "html": "<div class=\"ds-approval\"><div class=\"ds-approval__text\"><span class=\"ds-approval__label\">SELECTED</span><span class=\"ds-approval__total\">1.2 GB · 184 items</span></div><button class=\"ds-approval__btn\">MOVE TO TRASH</button></div>",
+      "css": ".ds-approval { display: flex; align-items: center; gap: 16px; padding: 16px 24px; background: #FAF6EE; border-top: 1px solid #DED6C8; } .ds-approval__text { display: flex; flex-direction: column; flex: 1; } .ds-approval__label { font-family: system-ui, sans-serif; font-size: 11px; font-weight: 500; letter-spacing: 0.14em; color: #6B635A; } .ds-approval__total { font-family: 'Playfair Display', Georgia, serif; font-weight: 700; font-size: 22px; color: #15110E; } .ds-approval__btn { background: #C41733; color: #F3EDE3; border: none; border-radius: 4px; padding: 14px 20px; font-family: system-ui, sans-serif; font-size: 11px; font-weight: 500; letter-spacing: 0.14em; cursor: pointer; } .ds-approval__btn:hover { background: #A3122B; } .ds-approval__btn:focus-visible { outline: 2px solid #15110E; outline-offset: 2px; }"
+    },
+    {
+      "name": "Notice",
+      "kind": "custom",
+      "refersTo": "finding-row",
+      "description": "A permission or result note: a 6dp status pip, a Playfair title, plain body, an optional crimson tracked-caps action. No box, no tint, no banner.",
+      "html": "<div class=\"ds-notice\"><span class=\"ds-notice__pip\"></span><div><h3 class=\"ds-notice__title\">App sizes are hidden</h3><p class=\"ds-notice__body\">Usage access reveals how much each app holds and when you last opened it. Without it, Tidyra shows nothing here rather than guessing.</p><button class=\"ds-notice__action\">GRANT ACCESS</button></div></div>",
+      "css": ".ds-notice { display: flex; gap: 16px; padding: 16px 24px; background: #F3EDE3; } .ds-notice__pip { width: 6px; height: 6px; border-radius: 50%; background: #9A6B14; margin-top: 7px; flex: none; } .ds-notice__title { margin: 0; font-family: 'Playfair Display', Georgia, serif; font-weight: 700; font-size: 22px; color: #15110E; } .ds-notice__body { margin: 4px 0 0; font-family: system-ui, sans-serif; font-size: 14px; color: #6B635A; } .ds-notice__action { margin-top: 4px; background: none; border: none; padding: 0; color: #C41733; font-family: system-ui, sans-serif; font-size: 11px; font-weight: 500; letter-spacing: 0.14em; cursor: pointer; } .ds-notice__action:hover { opacity: 0.72; } .ds-notice__action:focus-visible { outline: 2px solid #C41733; outline-offset: 3px; }"
+    },
+    {
+      "name": "Masthead and Hero",
+      "kind": "custom",
+      "refersTo": "capacity-rule",
+      "description": "The first viewport: wordmark at the left, tracked-caps actions at the right, then the one figure the screen is about in crimson over its denominator.",
+      "html": "<header class=\"ds-masthead\"><span class=\"ds-masthead__wordmark\">Tidyra</span><button class=\"ds-masthead__act\" data-quiet>DARK</button><button class=\"ds-masthead__act\">RESCAN</button></header><div class=\"ds-hero\"><div class=\"ds-hero__figure\">7.7 GB</div><div class=\"ds-hero__sub\">free of 9.7 GB</div></div>",
+      "css": ".ds-masthead { display: flex; align-items: center; gap: 16px; padding: 16px 24px 8px; background: #F3EDE3; } .ds-masthead__wordmark { flex: 1; font-family: 'Playfair Display', Georgia, serif; font-weight: 700; font-size: 28px; letter-spacing: -0.02em; color: #15110E; } .ds-masthead__act { background: none; border: none; padding: 0; cursor: pointer; font-family: system-ui, sans-serif; font-size: 11px; font-weight: 500; letter-spacing: 0.14em; color: #C41733; } .ds-masthead__act[data-quiet] { color: #6B635A; } .ds-masthead__act:focus-visible { outline: 2px solid #C41733; outline-offset: 3px; } .ds-hero { padding: 24px; background: #F3EDE3; } .ds-hero__figure { font-family: 'Playfair Display', Georgia, serif; font-weight: 700; font-size: 64px; line-height: 64px; letter-spacing: -0.04em; color: #C41733; } .ds-hero__sub { margin-top: 4px; font-family: 'Playfair Display', Georgia, serif; font-weight: 700; font-size: 24px; color: #15110E; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Printed Page of Record",
+    "overview": "Tidyra is set, not laid out. The screen behaves like a page in a well-printed broadsheet: warm paper ground, a high-contrast serif carrying the wordmark and every number, generous margins, and hairline rules doing the structural work that cards, boxes and shadows do in a stock Material app. Nothing is enclosed. Sections are separated by a 1px rule and air, the way a printed page separates them.\n\nThe category this app sits in — Android \"boosters\" — is loud, gauged and rocket-animated, and it exaggerates findings for a living. The answer here is typographic authority instead of urgency: one crimson accent used sparingly, exact figures rather than rounded reassurance, and no illustration, no gauge, no donut chart, no mascot. Dynamic colour is deliberately switched off; a wallpaper-derived scheme would replace crimson with something arbitrary and the page would lose its one voice.\n\nDensity is reading density. A row is at least 48dp because a finger needs it, but the vertical rhythm is set by one 8dp module and the type carries the hierarchy. Dark mode is the same page printed on near-black stock: the same rules, the same rhythm, a lighter crimson so the accent still measures.",
+    "keyCharacteristics": [
+      "Warm paper ground, never pure white; near-black ink, never pure black.",
+      "Playfair Display for the wordmark, every heading and every figure.",
+      "One crimson accent, read from the theme, never hardcoded.",
+      "Hairline rules and space instead of cards, borders and elevation.",
+      "Exact sizes, always — 756 MB, <1%, never a rounded 0%.",
+      "Marks are drawn on a Canvas at one stroke ratio; no glyph ever stands in for an icon."
+    ],
+    "rules": [
+      { "name": "The Theme-Read Accent Rule", "body": "The accent is always read from MaterialTheme.colorScheme.primary, never from the Crimson constant. Hardcoding it once ran dark mode at the light value and measured roughly 3.2:1 against the night ground. If a composable names a crimson, it is a bug.", "section": "colors" },
+      { "name": "The One Voice Rule", "body": "Crimson is the only accent. Olive and amber are 6dp status pips and never expand into surfaces, text colours or fills. Dynamic/wallpaper colour is off by construction.", "section": "colors" },
+      { "name": "The Measured Colour Rule", "body": "A colour earns its value by contrast measurement against its own ground, at the smallest size it is used on. The tracked 11sp caps are the governing case.", "section": "colors" },
+      { "name": "The Playfair Figure Rule", "body": "Every quantity in the app — hero figure, stat, row amount, percentage — is set in Playfair through StationType.amount or a larger serif role. A number in the sans face is a number that escaped the system.", "section": "typography" },
+      { "name": "The Exact Figure Rule", "body": "Sizes are formatted through Format and nowhere else: one decimal at GB scale, none below it, an em dash for unknown, and <1% for anything real but under one percent. A cleaner that says \"about 0.7 GB\" where it means 756 MB is rounding in its own favour. Every figure also has a spoken form (Format.spokenSize) so TalkBack reads \"756 megabytes\", not letters.", "section": "typography" },
+      { "name": "The Stencil-Is-An-Action Rule", "body": "Tracked 11sp caps mean \"this is a control or a status tag\" — button labels, SCAN, BACK, SAFE, SELECTED. They are never used as a kicker or an eyebrow above a heading.", "section": "typography" },
+      { "name": "The 8dp Module Rule", "body": "Every gap is a multiple of 8dp, with 4dp as the half-step. The only exceptions are Material's interactive minimums. Nothing sits off-grid \"just this once\".", "section": "layout" },
+      { "name": "The One Margin Rule", "body": "24dp, both sides, every screen. A section that indents differently from the masthead breaks the page.", "section": "layout" },
+      { "name": "The Status Bar Ownership Rule", "body": "Exactly one composable in any stack owns statusBarsPadding() — the masthead in the tabbed shell, the detail host on a detail screen. Never both.", "section": "layout" },
+      { "name": "The Hairline Rule", "body": "Structure is made of 1px rules and space. If a region needs to be set apart, give it a rule and a margin — not a card, not a border box, not a shadow.", "section": "elevation" },
+      { "name": "The No-Enclosure Rule", "body": "Nothing in this app is enclosed in a container. A card is the wrong gesture on a printed page.", "section": "elevation" },
+      { "name": "The Stable Tab Weight Rule", "body": "A tab's font weight never changes with state. Bold text is wider; an active tab would resize and shove every other tab along the row. Colour and the underline carry state. Nothing else does.", "section": "components" },
+      { "name": "The One Denominator Rule", "body": "Every quantity drawn anywhere in the app — a category share, a finding, the span a plan would free — is drawn through SizeScale against the device's total capacity, and is never re-normalised per screen. A megabyte is the same visual length everywhere. A real but tiny quantity still gets a visible sliver (floor 0.4%), capped so the floor can never make something look larger than the next real value up.", "section": "components" },
+      { "name": "The Counted-Once Rule", "body": "A file that belongs to two findings is counted once in the plan, and the overlap is stated on the row rather than quietly resolved. Totals across findings must reconcile with the approval bar.", "section": "components" },
+      { "name": "The Drawn Mark Rule", "body": "No Unicode glyph, icon font or vector pack ever stands in for an icon. A glyph borrowed from the text font is not an icon: set in Playfair, an arrow arrives as a thin double chevron at the font's weight and matches nothing else on the page. A new mark is authored in Marks.kt at the same stroke ratio or it does not ship.", "section": "components" }
+    ],
+    "dos": [
+      "Do read the accent from MaterialTheme.colorScheme.primary in every composable.",
+      "Do set every quantity in Playfair, through StationType.amount or a larger serif role.",
+      "Do format every size and percentage through Format, and give every figure a spokenSize for TalkBack.",
+      "Do draw every bar through SizeScale against the device's total capacity.",
+      "Do keep every gap on the 8dp module, with 4dp as the only half-step.",
+      "Do separate with a 1px rule and 24dp margins.",
+      "Do author new marks in Marks.kt at the 0.12 stroke ratio.",
+      "Do give a tappable row at least 48dp and a selection control a full interactive target.",
+      "Do let exactly one composable in a stack own statusBarsPadding().",
+      "Do state an overlap on the row when a finding shares items with another."
+    ],
+    "donts": [
+      "Don't hardcode Crimson or any other palette constant in a composable; it breaks dark mode's contrast.",
+      "Don't enable dynamic colour. Crimson is the only accent.",
+      "Don't put a quantity on a per-screen or per-row axis; there is one denominator.",
+      "Don't round a size for comfort, and never print 0% for something that exists.",
+      "Don't add a shadow, an elevation or a card. Rules and space carry structure.",
+      "Don't change a tab's font weight, or any text's weight, to signal state.",
+      "Don't use a Unicode glyph, icon font or vector pack as an icon.",
+      "Don't add ripple to a text tab.",
+      "Don't add statusBarsPadding() to a section rendered under the masthead.",
+      "Don't let a corner radius exceed 4dp outside the circular selection controls and status pips."
+    ]
+  }
+}

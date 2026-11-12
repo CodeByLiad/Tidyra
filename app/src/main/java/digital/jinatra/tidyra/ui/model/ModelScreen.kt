@@ -38,7 +38,6 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import digital.jinatra.tidyra.ai.ModelCatalog
 import digital.jinatra.tidyra.ui.format.Format
-import digital.jinatra.tidyra.ui.theme.Crimson
 import digital.jinatra.tidyra.ui.theme.LocalStationType
 import digital.jinatra.tidyra.ui.theme.Module
 import digital.jinatra.tidyra.ui.theme.Olive

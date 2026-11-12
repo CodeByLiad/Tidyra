@@ -35,7 +35,6 @@ import digital.jinatra.tidyra.core.model.Bytes
 import digital.jinatra.tidyra.core.trash.TrashStore
 import digital.jinatra.tidyra.ui.common.CheckMark
 import digital.jinatra.tidyra.ui.format.Format
-import digital.jinatra.tidyra.ui.theme.Crimson
 import digital.jinatra.tidyra.ui.theme.LocalStationType
 import digital.jinatra.tidyra.ui.theme.Module
 import java.text.SimpleDateFormat
@@ -257,7 +256,7 @@ private fun TrashRow(
             Column(horizontalAlignment = Alignment.End) {
                 Text(
                     text = Format.size(entry.size),
-                    style = MaterialTheme.typography.bodyLarge,
+                    style = type.amount,
                     color = colors.onSurface,
                 )
                 if (!selecting) {

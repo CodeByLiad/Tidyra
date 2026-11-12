@@ -26,7 +26,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import digital.jinatra.tidyra.ui.format.Format
-import digital.jinatra.tidyra.ui.theme.Crimson
 import digital.jinatra.tidyra.ui.theme.LocalStationType
 import digital.jinatra.tidyra.ui.theme.Module
 import java.io.File
@@ -120,7 +119,7 @@ fun OrganizeScreen(
                     }
                     Text(
                         text = Format.size(entry.bytes),
-                        style = MaterialTheme.typography.bodyLarge,
+                        style = type.amount,
                         color = colors.onSurfaceVariant,
                     )
                 }

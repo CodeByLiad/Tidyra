@@ -113,3 +113,26 @@ fun SelectionRing(
         }
     }
 }
+
+/** "Back to where this came from." The mirror of [ChevronMark], at the same weight. */
+@Composable
+fun ChevronLeftMark(color: Color, size: Dp = 16.dp, modifier: Modifier = Modifier) {
+    Canvas(modifier.size(size)) {
+        val w = this.size.width
+        val s = w * STROKE_RATIO
+        drawLine(
+            color = color,
+            start = Offset(w * 0.62f, w * 0.26f),
+            end = Offset(w * 0.36f, w * 0.5f),
+            strokeWidth = s,
+            cap = StrokeCap.Round,
+        )
+        drawLine(
+            color = color,
+            start = Offset(w * 0.36f, w * 0.5f),
+            end = Offset(w * 0.62f, w * 0.74f),
+            strokeWidth = s,
+            cap = StrokeCap.Round,
+        )
+    }
+}

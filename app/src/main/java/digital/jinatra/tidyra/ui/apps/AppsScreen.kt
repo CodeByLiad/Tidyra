@@ -38,7 +38,6 @@ import digital.jinatra.tidyra.core.scan.AppInventory
 import digital.jinatra.tidyra.core.shizuku.ShizukuBridge
 import digital.jinatra.tidyra.ui.common.AppIcon
 import digital.jinatra.tidyra.ui.format.Format
-import digital.jinatra.tidyra.ui.theme.Crimson
 import digital.jinatra.tidyra.ui.theme.LocalStationType
 import digital.jinatra.tidyra.ui.theme.Module
 
@@ -76,8 +75,12 @@ fun AppsScreen(
                 Modifier.padding(start = Module.x3, end = Module.x3, top = Module.x2, bottom = Module.u),
             ) {
                 Text(
+                    // Code, data and cache in one figure. The Storage tab splits the
+                    // same bytes into two categories, so without this line the reader is
+                    // handed two different totals for "apps" and no way to reconcile them.
                     text = if (hasUsageAccess) {
-                        "${Format.count(thirdParty.size, "app")} installed, holding ${Format.size(digital.jinatra.tidyra.core.model.Bytes(thirdParty.sumOf { it.totalBytes.value }))}"
+                        "${Format.count(thirdParty.size, "app")} installed, holding ${Format.size(digital.jinatra.tidyra.core.model.Bytes(thirdParty.sumOf { it.totalBytes.value }))}" +
+                            " \u2014 app code, data and cache together. Storage lists code and data separately."
                     } else {
                         "Usage access is off, so sizes are hidden"
                     },

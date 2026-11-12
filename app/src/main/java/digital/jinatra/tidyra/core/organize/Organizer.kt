@@ -1,6 +1,7 @@
 package digital.jinatra.tidyra.core.organize
 
 import digital.jinatra.tidyra.core.model.Bytes
+import digital.jinatra.tidyra.core.safety.Protected
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -49,6 +50,14 @@ class Organizer {
         for (file in children) {
             if (file.name.startsWith(".")) {
                 skipped += file to "Hidden file, left alone"
+                continue
+            }
+            // The same rule that stops Tidyra deleting these stops it relocating them. A
+            // backup or a key file sitting in Download may be what some other app or some
+            // restore step goes looking for by path; tidying is not worth breaking that.
+            val protected = Protected.reason(file.path)
+            if (protected != null) {
+                skipped += file to "Left where it is: $protected"
                 continue
             }
             val bucket = bucketFor(file)

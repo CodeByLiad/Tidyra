@@ -1,9 +1,9 @@
 package digital.jinatra.tidyra.ui.station
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -39,7 +40,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
@@ -58,7 +62,6 @@ import androidx.compose.material3.minimumInteractiveComponentSize
 import digital.jinatra.tidyra.ui.format.Format
 import digital.jinatra.tidyra.ui.format.SizeScale
 import digital.jinatra.tidyra.ui.theme.Amber
-import digital.jinatra.tidyra.ui.theme.Crimson
 import digital.jinatra.tidyra.ui.theme.LocalStationType
 import digital.jinatra.tidyra.ui.theme.Module
 import digital.jinatra.tidyra.ui.theme.Olive
@@ -159,19 +162,23 @@ fun StationScreen(
                 item { StatRow(state) }
                 item { Rule() }
                 item { SectionHeading("Storage by category") }
+                item { CapacityRule(state, scale) }
                 itemsIndexed(state.containers.filter { it.bytes.value > 0 }) { index, container ->
-                    RankedBar(
+                    CategoryRow(
                         onClick = { onOpenCategory(container.category) },
                         rank = index + 1,
                         label = container.category.label,
                         bytes = container.bytes,
                         proposed = container.proposed,
                         share = scale.fraction(container.bytes),
-                        drawn = scale.drawnFraction(container.bytes),
                     )
                 }
                 item {
-                    Footnote("Bars are drawn against the whole ${Format.size(state.snapshot?.totalBytes ?: Bytes.ZERO)}, so sizes compare honestly across every screen.")
+                    Footnote(
+                        "The rule is the whole ${Format.size(state.snapshot?.totalBytes ?: Bytes.ZERO)}: " +
+                            "each segment is a category, in the order of this list, and the pale span at the end is free. " +
+                            "Sizes compare honestly across every screen.",
+                    )
                 }
             }
 
@@ -313,33 +320,79 @@ private fun Stat(label: String, value: String, modifier: Modifier = Modifier) {
 }
 
 /**
- * A ranked bar. The hatched tail marks what the current selection would remove, so a
- * proposal is always measured against the whole device before it is approved.
+ * The device, drawn once.
+ *
+ * Seven per-row tracks against a whole-device denominator is an honest scale rendered
+ * dishonestly: at these magnitudes five of the seven categories drew as empty track, so
+ * "present but small" read as "absent" - the one thing the size scale forbids. Stacking
+ * them on a single rule keeps every share true against the same denominator, shows the
+ * free span that a column of used sizes cannot, and hands the detail to the figures.
  */
 @Composable
-private fun RankedBar(
+private fun CapacityRule(state: StationState, scale: SizeScale) {
+    val colors = MaterialTheme.colorScheme
+    val used = state.containers.filter { it.bytes.value > 0 }
+    val ink = colors.onSurface
+    val accent = colors.primary
+    val track = colors.surfaceContainerHighest
+    val total = state.snapshot?.totalBytes ?: Bytes.ZERO
+    val usedBytes = Bytes(used.sumOf { it.bytes.value })
+    Canvas(
+        Modifier
+            .fillMaxWidth()
+            .padding(horizontal = Module.x3, vertical = Module.u)
+            .height(Module.x2)
+            .clearAndSetSemantics {
+                contentDescription =
+                    "${Format.spokenSize(usedBytes)} used of ${Format.spokenSize(total)}"
+            },
+    ) {
+        drawRect(track)
+        val gap = 1.dp.toPx()
+        var x = 0f
+        used.forEach { container ->
+            val w = scale.fraction(container.bytes) * size.width
+            if (w <= 0f) return@forEach
+            drawRect(ink, topLeft = Offset(x, 0f), size = Size(w, size.height))
+            if (container.proposed.value > 0 && container.bytes.value > 0) {
+                val p = (container.proposed.value.toFloat() / container.bytes.value) * w
+                drawRect(accent, topLeft = Offset(x, 0f), size = Size(p.coerceAtMost(w), size.height))
+            }
+            x += w
+            // A hairline between neighbours, cut out of the segment just drawn rather than
+            // added after it, so the rule still measures the device exactly. Segments too
+            // narrow to spare it keep their full width.
+            if (gap < w) {
+                drawRect(track, topLeft = Offset(x - gap, 0f), size = Size(gap, size.height))
+            }
+        }
+    }
+}
+
+/**
+ * A category and its figure, carried across by a leader the way a contents page does.
+ * The proposal rides in the accent beside the size, and on the rule above it.
+ */
+@Composable
+private fun CategoryRow(
     onClick: () -> Unit,
     rank: Int,
     label: String,
     bytes: Bytes,
     proposed: Bytes,
     share: Float,
-    drawn: Float,
 ) {
     val type = LocalStationType.current
     val colors = MaterialTheme.colorScheme
-    // Drawn against the whole device, full stop. Re-scaling so the biggest category
-    // fills the track would make the footnote under this list a lie.
-    val width by animateFloatAsState(drawn, label = "bar")
-    val proposedWidth = if (bytes.value > 0) (proposed.value.toFloat() / bytes.value) * width else 0f
-
     Row(
         Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
-            .padding(horizontal = Module.x3, vertical = Module.u + 2.dp)
+            .heightIn(min = 48.dp)
+            .padding(horizontal = Module.x3, vertical = Module.u)
             .clearAndSetSemantics {
-                contentDescription = "$rank. $label, ${Format.spokenSize(bytes)}, ${(share * 100).toInt()} percent"
+                contentDescription = "$rank. $label, ${Format.spokenSize(bytes)}, ${(share * 100).toInt()} percent" +
+                    if (proposed.value > 0) ", ${Format.spokenSize(proposed)} selected" else ""
             },
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -355,35 +408,36 @@ private fun RankedBar(
             color = colors.onSurface,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.width(112.dp),
         )
-        Box(
-            Modifier
-                .weight(1f)
-                .padding(horizontal = Module.u)
-                .height(8.dp)
-                .clip(RoundedCornerShape(4.dp))
-                .background(colors.surfaceContainerHighest),
-        ) {
-            Box(
-                Modifier
-                    .fillMaxWidth(width)
-                    .fillMaxHeight()
-                    .background(MaterialTheme.colorScheme.primary),
+        Leader(Modifier.weight(1f).padding(horizontal = Module.u))
+        if (proposed.value > 0) {
+            Text(
+                text = Format.size(proposed),
+                style = type.amount,
+                color = colors.primary,
+                modifier = Modifier.padding(end = Module.u),
             )
-            if (proposedWidth > 0f) {
-                Box(
-                    Modifier
-                        .fillMaxWidth(proposedWidth)
-                        .fillMaxHeight()
-                        .background(colors.onSurface.copy(alpha = 0.55f)),
-                )
-            }
         }
         Text(
             text = "${Format.size(bytes)}  (${Format.percent(share)})",
             style = type.amount,
-            color = colors.onSurfaceVariant,
+            color = colors.onSurface,
+        )
+        ChevronMark(colors.onSurfaceVariant, 16.dp, Modifier.padding(start = Module.half))
+    }
+}
+
+/** The dotted run between a name and its figure. */
+@Composable
+private fun Leader(modifier: Modifier = Modifier) {
+    val color = MaterialTheme.colorScheme.outline
+    Canvas(modifier.height(1.dp)) {
+        drawLine(
+            color = color,
+            start = Offset(0f, size.height / 2f),
+            end = Offset(size.width, size.height / 2f),
+            strokeWidth = size.height,
+            pathEffect = PathEffect.dashPathEffect(floatArrayOf(1.dp.toPx(), 3.dp.toPx()), 0f),
         )
     }
 }
@@ -635,7 +689,9 @@ internal fun ApprovalBar(frees: Bytes, items: Int, working: Boolean, onApprove: 
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Column(Modifier.weight(1f)) {
-                Text("APPROVED", style = type.stencil, color = colors.onSurfaceVariant)
+                // Not "APPROVED": the tap beside this label is what approves it. Saying so before
+                // the fact is the one piece of copy in the app that must not be loose.
+                Text("SELECTED", style = type.stencil, color = colors.onSurfaceVariant)
                 Text(
                     text = "${Format.size(frees)} · ${Format.count(items, "item")}",
                     style = MaterialTheme.typography.titleLarge,
