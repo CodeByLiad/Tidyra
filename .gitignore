@@ -1,0 +1,20 @@
+*.iml
+.gradle/
+local.properties
+.idea/
+.DS_Store
+build/
+captures/
+.externalNativeBuild
+.cxx
+*.apk
+*.aab
+
+# Impeccable working files: the brief and DESIGN.md are committed, the scratch is not.
+.impeccable/questions/
+.impeccable/review/
+.impeccable/build/
+.impeccable/mocks/
+
+# Phone backups pulled over ADB during development — never commit someone's files.
+phone-backup/

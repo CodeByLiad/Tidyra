@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Themed-icon variant: the same three containers, fills as outline gaps. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path android:fillColor="#FFFFFF"
+        android:pathData="M26,34h56v12h-56zM28,36v8h38v-8z" />
+    <path android:fillColor="#FFFFFF"
+        android:pathData="M26,52h56v12h-56zM28,54v8h22v-8z" />
+    <path android:fillColor="#FFFFFF"
+        android:pathData="M26,70h56v12h-56zM28,72v8h48v-8z" />
+</vector>

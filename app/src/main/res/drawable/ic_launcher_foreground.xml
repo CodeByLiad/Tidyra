@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The container row, which is the app's signature: three enamel bars at different fills.
+  Not a bin, not a broom, not a rocket — the mark is the measurement.
+  108dp canvas, art kept inside the 72dp safe zone (18..90).
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Container outlines -->
+    <path android:fillColor="#171614"
+        android:pathData="M26,34h56v12h-56z" />
+    <path android:fillColor="#171614"
+        android:pathData="M26,52h56v12h-56z" />
+    <path android:fillColor="#171614"
+        android:pathData="M26,70h56v12h-56z" />
+
+    <!-- Fills, at three different levels, in the container palette -->
+    <path android:fillColor="#1C5FA8"
+        android:pathData="M28,36h38v8h-38z" />
+    <path android:fillColor="#1E7A4B"
+        android:pathData="M28,54h22v8h-22z" />
+    <path android:fillColor="#C8321E"
+        android:pathData="M28,72h48v8h-48z" />
+</vector>

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+      The splash/window theme only. Everything visible is themed in Compose, so this
+      exists to stop a white flash before the first frame: concrete ground in light,
+      asphalt in dark (see values-night).
+    -->
+    <style name="Theme.Tidyra" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/ground</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowLightStatusBar">false</item>
+    </style>
+</resources>
