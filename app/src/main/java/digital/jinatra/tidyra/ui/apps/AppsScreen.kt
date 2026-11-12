@@ -63,7 +63,9 @@ fun AppsScreen(
     val type = LocalStationType.current
     val colors = MaterialTheme.colorScheme
     val thirdParty = apps.filterNot { it.isSystem }
-    val cacheTotal = apps.sumOf { it.cacheBytes.value }
+    // Count what the list shows. A headline measuring every package on the phone,
+    // over a list of the ones you installed, is two numbers the reader cannot reconcile.
+    val cacheTotal = thirdParty.sumOf { it.cacheBytes.value }
 
     LazyColumn(
         modifier = modifier.fillMaxWidth(),
@@ -89,7 +91,7 @@ fun AppsScreen(
         if (!hasUsageAccess) {
             item {
                 TextButton(onClick = onGrantUsage, modifier = Modifier.padding(Module.x3)) {
-                    Text("GRANT USAGE ACCESS", style = type.stencil, color = Crimson)
+                    Text("GRANT USAGE ACCESS", style = type.stencil, color = MaterialTheme.colorScheme.primary)
                 }
             }
             return@LazyColumn
@@ -122,7 +124,7 @@ fun AppsScreen(
                     }
                     if (shizuku == ShizukuBridge.State.READY) {
                         TextButton(onClick = onClearAllCaches) {
-                            Text("CLEAR", style = type.stencil, color = Crimson)
+                            Text("CLEAR", style = type.stencil, color = MaterialTheme.colorScheme.primary)
                         }
                     }
                 }
@@ -176,7 +178,7 @@ private fun AppRow(
                         }
                     },
                     style = MaterialTheme.typography.bodyMedium,
-                    color = if (stale) Crimson else colors.onSurfaceVariant,
+                    color = if (stale) MaterialTheme.colorScheme.primary else colors.onSurfaceVariant,
                     modifier = Modifier.padding(top = 2.dp),
                 )
             }
@@ -193,7 +195,7 @@ private fun AppRow(
                     onClick = { onUninstall(app.packageName) },
                     contentPadding = PaddingValues(0.dp),
                 ) {
-                    Text("UNINSTALL", style = type.stencil, color = Crimson)
+                    Text("UNINSTALL", style = type.stencil, color = MaterialTheme.colorScheme.primary)
                 }
             }
         }

@@ -32,6 +32,7 @@ import digital.jinatra.tidyra.core.model.Finding
 import digital.jinatra.tidyra.core.model.FindingKind
 import digital.jinatra.tidyra.core.model.Risk
 import digital.jinatra.tidyra.ui.common.AppIcon
+import digital.jinatra.tidyra.ui.common.CheckMark
 import digital.jinatra.tidyra.ui.format.Format
 import digital.jinatra.tidyra.ui.theme.Amber
 import digital.jinatra.tidyra.ui.theme.Crimson
@@ -75,7 +76,7 @@ fun FindingDetailScreen(
     val riskColor = when (finding.risk) {
         Risk.SAFE -> Olive
         Risk.REVIEW -> Amber
-        Risk.PERSONAL -> Crimson
+        Risk.PERSONAL -> MaterialTheme.colorScheme.primary
     }
 
     LazyColumn(
@@ -87,7 +88,7 @@ fun FindingDetailScreen(
                 Modifier.padding(start = Module.x3, end = Module.x3, top = Module.x2),
             ) {
                 TextButton(onClick = onBack, contentPadding = PaddingValues(0.dp)) {
-                    Text("← BACK", style = type.stencil, color = Crimson)
+                    Text("← BACK", style = type.stencil, color = MaterialTheme.colorScheme.primary)
                 }
                 Text(
                     text = finding.title,
@@ -147,7 +148,7 @@ fun FindingDetailScreen(
                             Text(
                                 text = if (explaining) "ASKING GEMMA" else "ASK GEMMA WHAT THESE ARE",
                                 style = type.stencil,
-                                color = Crimson,
+                                color = MaterialTheme.colorScheme.primary,
                             )
                         }
                     }
@@ -181,14 +182,14 @@ fun FindingDetailScreen(
                     Text(
                         text = "${Format.size(chosenBytes)} · ${chosen.size} of ${finding.items.size}",
                         style = MaterialTheme.typography.titleLarge,
-                        color = if (chosen.isEmpty()) colors.onSurfaceVariant else Crimson,
+                        color = if (chosen.isEmpty()) colors.onSurfaceVariant else MaterialTheme.colorScheme.primary,
                     )
                 }
                 TextButton(onClick = { onSelectAll(!allSelected) }) {
                     Text(
                         text = if (allSelected) "CLEAR ALL" else "SELECT ALL",
                         style = type.stencil,
-                        color = Crimson,
+                        color = MaterialTheme.colorScheme.primary,
                     )
                 }
             }
@@ -231,7 +232,7 @@ fun CategoryDetailScreen(
                 Modifier.padding(start = Module.x3, end = Module.x3, top = Module.x2, bottom = Module.x2),
             ) {
                 TextButton(onClick = onBack, contentPadding = PaddingValues(0.dp)) {
-                    Text("← BACK", style = type.stencil, color = Crimson)
+                    Text("← BACK", style = type.stencil, color = MaterialTheme.colorScheme.primary)
                 }
                 Text(
                     text = title,
@@ -289,11 +290,11 @@ private fun ItemRow(
                     Modifier
                         .size(20.dp)
                         .clip(CircleShape)
-                        .background(if (selected) Crimson else colors.surfaceContainerHighest),
+                        .background(if (selected) MaterialTheme.colorScheme.primary else colors.surfaceContainerHighest),
                     contentAlignment = Alignment.Center,
                 ) {
                     if (selected) {
-                        Text("✓", color = colors.onPrimary, style = MaterialTheme.typography.labelSmall)
+                        CheckMark(colors.onPrimary, 12.dp)
                     }
                 }
             }
@@ -340,7 +341,7 @@ private fun ItemRow(
                 )
                 if (action != null) {
                     TextButton(onClick = action.second, contentPadding = PaddingValues(0.dp)) {
-                        Text(action.first, style = type.stencil, color = Crimson)
+                        Text(action.first, style = type.stencil, color = MaterialTheme.colorScheme.primary)
                     }
                 } else {
                     Text(

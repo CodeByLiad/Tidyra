@@ -80,7 +80,7 @@ fun OrganizeScreen(
                         label = { Text(folder.name, maxLines = 1) },
                         shape = RoundedCornerShape(Module.half),
                         colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = Crimson,
+                            selectedContainerColor = MaterialTheme.colorScheme.primary,
                             selectedLabelColor = colors.onPrimary,
                         ),
                     )
@@ -108,7 +108,7 @@ fun OrganizeScreen(
                         Text(
                             text = if (entry.loose) entry.name else entry.name + "/",
                             style = MaterialTheme.typography.bodyLarge,
-                            color = if (entry.loose) Crimson else colors.onSurface,
+                            color = if (entry.loose) MaterialTheme.colorScheme.primary else colors.onSurface,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                         )
@@ -244,7 +244,7 @@ fun OrganizeScreen(
                         enabled = !state.working,
                         shape = RoundedCornerShape(Module.half),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = Crimson,
+                            containerColor = MaterialTheme.colorScheme.primary,
                             contentColor = colors.onPrimary,
                         ),
                         modifier = Modifier
@@ -267,7 +267,7 @@ fun OrganizeScreen(
                         color = colors.onSurface,
                     )
                     TextButton(onClick = onUndo, contentPadding = PaddingValues(0.dp)) {
-                        Text("PUT THEM BACK", style = type.stencil, color = Crimson)
+                        Text("PUT THEM BACK", style = type.stencil, color = MaterialTheme.colorScheme.primary)
                     }
                 }
             }

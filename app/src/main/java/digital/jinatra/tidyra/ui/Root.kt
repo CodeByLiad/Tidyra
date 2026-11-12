@@ -40,6 +40,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -299,7 +303,7 @@ private fun Masthead(
             Text(
                 text = if (scanning) "SCANNING" else if (scanned) "RESCAN" else "SCAN",
                 style = type.stencil,
-                color = if (scanning) colors.onSurfaceVariant else Crimson,
+                color = if (scanning) colors.onSurfaceVariant else MaterialTheme.colorScheme.primary,
             )
         }
     }
@@ -312,8 +316,9 @@ private fun SectionTabs(current: Section, onSelect: (Section) -> Unit) {
         // Five sections do not fit a phone row at a readable size, so the strip scrolls
         // rather than squeezing the labels or wrapping one onto a second line.
         // Spread across the full width: the first tab sits on the masthead's left margin
-        // and the last ends on the same margin at the right. Packing them left instead
-        // leaves a band of dead space that reads as a mistake.
+        // and the last ends on the same margin at the right. Five short labels fit a phone
+        // even at large font scales; each one holds a single line and ellipsises rather
+        // than wrapping, so the strip never becomes two rows.
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -329,6 +334,12 @@ private fun SectionTabs(current: Section, onSelect: (Section) -> Unit) {
                         .width(IntrinsicSize.Min)
                         // No ripple: a grey box flashing behind a word is the stock
                         // affordance, and the colour and rule already answer the tap.
+                        // Announced as a tab, with its selected state, rather than as
+                        // five unlabelled words.
+                        .semantics {
+                            role = Role.Tab
+                            selected = active
+                        }
                         .clickable(
                             interactionSource = remember { MutableInteractionSource() },
                             indication = null,
@@ -340,7 +351,7 @@ private fun SectionTabs(current: Section, onSelect: (Section) -> Unit) {
                     // active tab would resize and shift every other tab along the row.
                     // Colour and the underline carry the state, and both ease in.
                     val tint by animateColorAsState(
-                        targetValue = if (active) Crimson else colors.onSurfaceVariant,
+                        targetValue = if (active) MaterialTheme.colorScheme.primary else colors.onSurfaceVariant,
                         animationSpec = tween(220),
                         label = "tab-tint",
                     )
@@ -354,6 +365,8 @@ private fun SectionTabs(current: Section, onSelect: (Section) -> Unit) {
                         style = MaterialTheme.typography.bodyLarge,
                         fontWeight = FontWeight.Medium,
                         color = tint,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
                     )
                     // Always drawn, exactly as wide as its label, and only coloured when
                     // active. A rule that appears and disappears changes the column's
@@ -363,7 +376,7 @@ private fun SectionTabs(current: Section, onSelect: (Section) -> Unit) {
                             .padding(top = Module.u)
                             .fillMaxWidth()
                             .height(2.dp)
-                            .background(Crimson.copy(alpha = ruleAlpha)),
+                            .background(MaterialTheme.colorScheme.primary.copy(alpha = ruleAlpha)),
                     )
                 }
             }

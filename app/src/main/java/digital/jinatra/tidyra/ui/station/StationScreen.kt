@@ -52,6 +52,9 @@ import digital.jinatra.tidyra.core.model.FindingKind
 import digital.jinatra.tidyra.core.model.Risk
 import digital.jinatra.tidyra.core.model.StorageCategory
 import digital.jinatra.tidyra.core.shizuku.ShizukuBridge
+import digital.jinatra.tidyra.ui.common.ChevronMark
+import digital.jinatra.tidyra.ui.common.SelectionRing
+import androidx.compose.material3.minimumInteractiveComponentSize
 import digital.jinatra.tidyra.ui.format.Format
 import digital.jinatra.tidyra.ui.format.SizeScale
 import digital.jinatra.tidyra.ui.theme.Amber
@@ -117,7 +120,7 @@ fun StationScreen(
                         Notice(
                             "Tidyra cannot see your files yet",
                             "All-files access lets it read folder sizes, prove duplicates are identical, and file loose files. It is the one permission the app genuinely needs.",
-                            "Grant access", onGrantAllFiles, Crimson,
+                            "Grant access", onGrantAllFiles, MaterialTheme.colorScheme.primary,
                         )
                     }
                 }
@@ -165,7 +168,6 @@ fun StationScreen(
                         proposed = container.proposed,
                         share = scale.fraction(container.bytes),
                         drawn = scale.drawnFraction(container.bytes),
-                        largest = state.containers.maxOf { scale.drawnFraction(it.bytes) },
                     )
                 }
                 item {
@@ -234,7 +236,7 @@ private fun Masthead(state: StationState, onScan: () -> Unit) {
                 Text(
                     text = if (state.snapshot?.byCategory.isNullOrEmpty()) "SCAN" else "RESCAN",
                     style = type.stencil,
-                    color = Crimson,
+                    color = MaterialTheme.colorScheme.primary,
                 )
             }
         }
@@ -257,7 +259,7 @@ private fun Hero(state: StationState) {
                 heading()
             },
     ) {
-        Text(Format.size(free), style = type.figure, color = Crimson)
+        Text(Format.size(free), style = type.figure, color = MaterialTheme.colorScheme.primary)
         Text(
             text = "free of ${Format.size(total)}",
             style = MaterialTheme.typography.headlineSmall,
@@ -323,14 +325,12 @@ private fun RankedBar(
     proposed: Bytes,
     share: Float,
     drawn: Float,
-    largest: Float,
 ) {
     val type = LocalStationType.current
     val colors = MaterialTheme.colorScheme
-    // Bar lengths stay proportional to the device, then scale as a group so the largest
-    // category fills the track. The ratio between any two bars is still the true ratio.
-    val relative = if (largest > 0f) (drawn / largest) else 0f
-    val width by animateFloatAsState(relative, label = "bar")
+    // Drawn against the whole device, full stop. Re-scaling so the biggest category
+    // fills the track would make the footnote under this list a lie.
+    val width by animateFloatAsState(drawn, label = "bar")
     val proposedWidth = if (bytes.value > 0) (proposed.value.toFloat() / bytes.value) * width else 0f
 
     Row(
@@ -369,7 +369,7 @@ private fun RankedBar(
                 Modifier
                     .fillMaxWidth(width)
                     .fillMaxHeight()
-                    .background(Crimson),
+                    .background(MaterialTheme.colorScheme.primary),
             )
             if (proposedWidth > 0f) {
                 Box(
@@ -403,7 +403,7 @@ private fun FindingRow(
     val riskColor = when (finding.risk) {
         Risk.SAFE -> Olive
         Risk.REVIEW -> Amber
-        Risk.PERSONAL -> Crimson
+        Risk.PERSONAL -> MaterialTheme.colorScheme.primary
     }
     val riskWord = when (finding.risk) {
         Risk.SAFE -> "SAFE"
@@ -422,10 +422,25 @@ private fun FindingRow(
                 finding.kind == FindingKind.APP_CACHE
             if (appFinding) {
                 // No tick: these are uninstalled or cleared one at a time, never trashed.
-                Text("\u2192", style = MaterialTheme.typography.titleLarge, color = colors.onSurfaceVariant)
+                Box(Modifier.minimumInteractiveComponentSize(), contentAlignment = Alignment.Center) {
+                    ChevronMark(colors.onSurfaceVariant)
+                }
             } else {
-                Box(Modifier.clickable { onToggle(selection != StationState.Selection.ALL) }) {
-                    SelectionDot(selection)
+                // Per-item approval is the product's premise, so its control gets a real
+                // target rather than a 20dp dot.
+                Box(
+                    Modifier
+                        .minimumInteractiveComponentSize()
+                        .clickable { onToggle(selection != StationState.Selection.ALL) },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    SelectionRing(
+                        selected = selection != StationState.Selection.NONE,
+                        partial = selection == StationState.Selection.SOME,
+                        ringColor = colors.outline,
+                        fillColor = colors.primary,
+                        onFillColor = colors.onPrimary,
+                    )
                 }
             }
             Column(Modifier.weight(1f).padding(start = Module.x2)) {
@@ -461,7 +476,7 @@ private fun FindingRow(
                 Text(
                     text = if (finding.frees.value > 0) Format.size(finding.frees) else "tidies",
                     style = MaterialTheme.typography.titleLarge,
-                    color = if (selected) Crimson else colors.onSurface,
+                    color = if (selected) MaterialTheme.colorScheme.primary else colors.onSurface,
                 )
                 Text(
                     text = if (pickedCount > 0 && pickedCount < finding.items.size) {
@@ -475,35 +490,6 @@ private fun FindingRow(
             }
         }
         HorizontalDivider(color = colors.outlineVariant)
-    }
-}
-
-@Composable
-private fun SelectionDot(selection: StationState.Selection) {
-    val colors = MaterialTheme.colorScheme
-    val selected = selection != StationState.Selection.NONE
-    Box(
-        Modifier
-            .padding(top = 6.dp)
-            .size(20.dp)
-            .clip(CircleShape)
-            .background(if (selected) Crimson else Color.Transparent),
-        contentAlignment = Alignment.Center,
-    ) {
-        if (!selected) {
-            Box(
-                Modifier
-                    .size(20.dp)
-                    .clip(CircleShape)
-                    .background(colors.surfaceContainerHighest),
-            )
-        } else {
-            Text(
-                text = if (selection == StationState.Selection.ALL) "✓" else "–",
-                color = colors.onPrimary,
-                style = MaterialTheme.typography.labelMedium,
-            )
-        }
     }
 }
 
@@ -561,7 +547,7 @@ private fun FirstScan(onScan: () -> Unit, hasAccess: Boolean) {
             enabled = hasAccess,
             shape = RoundedCornerShape(Module.half),
             colors = ButtonDefaults.buttonColors(
-                containerColor = Crimson,
+                containerColor = MaterialTheme.colorScheme.primary,
                 contentColor = colors.onPrimary,
                 disabledContainerColor = colors.surfaceContainerHighest,
                 disabledContentColor = colors.onSurfaceVariant,
@@ -580,7 +566,7 @@ private fun ScanProgress(state: StationState) {
     Column(Modifier.padding(horizontal = Module.x3, vertical = Module.u)) {
         LinearProgressIndicator(
             modifier = Modifier.fillMaxWidth(),
-            color = Crimson,
+            color = MaterialTheme.colorScheme.primary,
             trackColor = MaterialTheme.colorScheme.surfaceContainerHighest,
         )
         Text(
@@ -623,7 +609,7 @@ private fun Notice(
                     contentPadding = PaddingValues(0.dp),
                     modifier = Modifier.padding(top = Module.half),
                 ) {
-                    Text(action.uppercase(), style = type.stencil, color = Crimson)
+                    Text(action.uppercase(), style = type.stencil, color = MaterialTheme.colorScheme.primary)
                 }
             }
         }
@@ -660,7 +646,7 @@ internal fun ApprovalBar(frees: Bytes, items: Int, working: Boolean, onApprove: 
                 onClick = onApprove,
                 enabled = !working,
                 shape = RoundedCornerShape(Module.half),
-                colors = ButtonDefaults.buttonColors(containerColor = Crimson, contentColor = colors.onPrimary),
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary, contentColor = colors.onPrimary),
             ) {
                 Text(if (working) "WORKING" else "MOVE TO TRASH", style = type.stencil)
             }

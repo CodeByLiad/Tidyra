@@ -117,7 +117,7 @@ fun ModelScreen(
                     colors = TextFieldDefaults.colors(
                         focusedContainerColor = Color.Transparent,
                         unfocusedContainerColor = Color.Transparent,
-                        focusedIndicatorColor = Crimson,
+                        focusedIndicatorColor = MaterialTheme.colorScheme.primary,
                         unfocusedIndicatorColor = colors.outline,
                     ),
                     modifier = Modifier.fillMaxWidth(),
@@ -127,7 +127,7 @@ fun ModelScreen(
                     contentPadding = PaddingValues(0.dp),
                     modifier = Modifier.padding(top = Module.u),
                 ) {
-                    Text("IMPORT A .TASK FILE INSTEAD", style = type.stencil, color = Crimson)
+                    Text("IMPORT A .TASK FILE INSTEAD", style = type.stencil, color = MaterialTheme.colorScheme.primary)
                 }
                 Text(
                     text = "Models live in ${ModelCatalog.SHARED_DIR} when Tidyra has all-files access, so one download serves every Jinatra app on this phone.",
@@ -223,7 +223,7 @@ private fun ModelRow(
                         .fillMaxWidth()
                         .padding(top = Module.x2)
                         .height(2.dp),
-                    color = Crimson,
+                    color = MaterialTheme.colorScheme.primary,
                     trackColor = colors.surfaceContainerHighest,
                 )
                 Row(
@@ -239,7 +239,7 @@ private fun ModelRow(
                         modifier = Modifier.weight(1f),
                     )
                     TextButton(onClick = onCancel, contentPadding = PaddingValues(0.dp)) {
-                        Text("STOP", style = type.stencil, color = Crimson)
+                        Text("STOP", style = type.stencil, color = MaterialTheme.colorScheme.primary)
                     }
                 }
             } else {
@@ -266,7 +266,7 @@ private fun ModelRow(
                         enabled = !incompatible && !loading,
                         shape = RoundedCornerShape(Module.half),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = if (isLoaded) colors.surfaceContainerHigh else Crimson,
+                            containerColor = if (isLoaded) colors.surfaceContainerHigh else MaterialTheme.colorScheme.primary,
                             contentColor = if (isLoaded) colors.onSurface else colors.onPrimary,
                             disabledContainerColor = colors.surfaceContainerHigh,
                             disabledContentColor = colors.onSurfaceVariant,
@@ -301,7 +301,7 @@ private fun ModelRow(
                 }
             }
 
-            entry.error?.let { Reason(it, Crimson) }
+            entry.error?.let { Reason(it, MaterialTheme.colorScheme.primary) }
 
             Text(
                 text = "Licence: ${entry.model.licence}",

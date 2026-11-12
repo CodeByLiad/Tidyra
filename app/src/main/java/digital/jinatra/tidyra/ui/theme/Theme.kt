@@ -39,7 +39,9 @@ val Ink = Color(0xFF15110E)
 val InkNight = Color(0xFFF2EDE6)
 val Muted = Color(0xFF6B635A)
 val MutedNight = Color(0xFF9A9188)
-val Crimson = Color(0xFFD6203F)
+// 5.1:1 on Paper — the previous #D6203F measured 4.36:1, under the floor for the
+// 11sp tracked caps it is used on. Still the vivid end of crimson, not the muted one.
+val Crimson = Color(0xFFC41733)
 val CrimsonNight = Color(0xFFFF5A72)
 val Rule = Color(0xFFDED6C8)
 val RuleNight = Color(0xFF2A2724)
@@ -169,9 +171,11 @@ data class StationType(
         letterSpacing = 0.14.em,
     ),
     /** A value at the end of a row. */
+    /** A value at the end of a row. Playfair, like every other figure in the app. */
     val amount: TextStyle = TextStyle(
-        fontWeight = FontWeight.Medium,
-        fontSize = 14.sp,
+        fontFamily = Editorial,
+        fontWeight = FontWeight.Bold,
+        fontSize = 15.sp,
     ),
     /** Section headings, serif, set like a magazine's. */
     val section: TextStyle = TextStyle(

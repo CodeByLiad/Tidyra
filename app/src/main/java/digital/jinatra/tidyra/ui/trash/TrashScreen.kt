@@ -33,6 +33,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import digital.jinatra.tidyra.core.model.Bytes
 import digital.jinatra.tidyra.core.trash.TrashStore
+import digital.jinatra.tidyra.ui.common.CheckMark
 import digital.jinatra.tidyra.ui.format.Format
 import digital.jinatra.tidyra.ui.theme.Crimson
 import digital.jinatra.tidyra.ui.theme.LocalStationType
@@ -120,7 +121,7 @@ fun TrashScreen(
                                 "$n selected · ${Format.size(chosenBytes)}"
                             },
                             style = MaterialTheme.typography.bodyMedium,
-                            color = if (confirmingDelete) Crimson else colors.onSurfaceVariant,
+                            color = if (confirmingDelete) MaterialTheme.colorScheme.primary else colors.onSurfaceVariant,
                             modifier = Modifier.weight(1f),
                         )
                         if (!confirmingDelete && n > 0) {
@@ -144,7 +145,7 @@ fun TrashScreen(
                         Text(
                             text = if (confirmingEmpty) "This cannot be undone" else "Auto-purged after 14 days",
                             style = MaterialTheme.typography.bodySmall,
-                            color = if (confirmingEmpty) Crimson else colors.onSurfaceVariant,
+                            color = if (confirmingEmpty) MaterialTheme.colorScheme.primary else colors.onSurfaceVariant,
                             modifier = Modifier.weight(1f),
                         )
                         if (!confirmingEmpty) {
@@ -224,18 +225,18 @@ private fun TrashRow(
                     Modifier
                         .size(20.dp)
                         .clip(CircleShape)
-                        .background(if (selected) Crimson else colors.surfaceContainerHighest),
+                        .background(if (selected) MaterialTheme.colorScheme.primary else colors.surfaceContainerHighest),
                     contentAlignment = Alignment.Center,
                 ) {
                     if (selected) {
-                        Text("✓", color = colors.onPrimary, style = MaterialTheme.typography.labelSmall)
+                        CheckMark(colors.onPrimary, 12.dp)
                     }
                 }
             }
             Column(
                 Modifier
                     .weight(1f)
-                    .padding(start = if (selecting) Module.x2 else 0.dp),
+                    .padding(start = if (selecting) Module.x2 else 0.dp, end = Module.x2),
                 verticalArrangement = Arrangement.spacedBy(2.dp),
             ) {
                 Text(
@@ -265,7 +266,7 @@ private fun TrashRow(
                         enabled = !working,
                         contentPadding = PaddingValues(0.dp),
                     ) {
-                        Text("PUT BACK", style = type.stencil, color = Crimson)
+                        Text("PUT BACK", style = type.stencil, color = MaterialTheme.colorScheme.primary)
                     }
                 }
             }
@@ -278,7 +279,7 @@ private fun TrashRow(
 private fun Action(
     label: String,
     enabled: Boolean,
-    color: androidx.compose.ui.graphics.Color = Crimson,
+    color: androidx.compose.ui.graphics.Color = MaterialTheme.colorScheme.primary,
     onClick: () -> Unit,
 ) {
     val type = LocalStationType.current
