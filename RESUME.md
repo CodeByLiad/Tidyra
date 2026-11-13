@@ -1,6 +1,6 @@
 # Resume Tidyra here
 
-**Checkpoint: 2026-11-13, 05:10.** Builds clean, 18 unit tests pass, verified end to end on an emulator. Finish review applied, verdict applied, `DESIGN.md` written. This is the finished state.
+**Checkpoint: 2026-11-13, pushed.** Builds clean, 18 unit tests pass, verified end to end on an emulator. Finish review applied, verdict applied, `DESIGN.md` written. This is the finished state.
 
 ## Read first
 `PRD.md` (what it should become) · `PRODUCT.md` (product truth, platform limits) · `DESIGN.md` (visual system, written at finish) · `.impeccable/build-notes.md` (toolchain, version pins) · `.impeccable/surfaces/digital-jinatra-tidyra-ui-mainactivity-kt-1037687c.md` (direction contract — its OWN-WORLD block is superseded by the pinned editorial world; its four raises still bind).
@@ -49,8 +49,9 @@ Pins: AGP 8.13.2, Kotlin 2.4.21, Compose 1.11.4, material3 1.4.0, okhttp 4.12.0,
 Emulator permissions without tapping: `adb shell appops set <pkg> MANAGE_EXTERNAL_STORAGE allow` and `... GET_USAGE_STATS allow`.
 Scratchpad helpers: `seed.sh` (push to `/data/local/tmp`, run with `sh`), `capture.sh` (scroll-aware taps, verifies the foreground activity and an on-screen string after every screencap).
 
+## Published
+`https://github.com/CodeByLiad/Tidyra` — public, GPL-3.0, default branch `main`, `origin` wired up. 74 files; no keystore, `local.properties` or token strings in the tree (checked). Topics and description set for the F-Droid and Shizuku listings.
+
 ## Next
-1. **GitHub push is still blocked** by this session's permission classifier. Everything is committed on `main`; run it yourself:
-   `gh repo create CodeByLiad/Tidyra --public --source=. --remote=origin --push`
-2. Verify Shizuku on hardware.
-3. The signature interaction from the contract — the proposed span retracting on confirmation — is a flat alpha overlay with no authored motion. The stacked rule now carries the proposal in the accent; animating that retraction is the remaining half.
+1. Verify Shizuku on hardware.
+2. The signature interaction from the contract — the proposed span retracting on confirmation — is a flat alpha overlay with no authored motion. The stacked rule now carries the proposal in the accent; animating that retraction is the remaining half.
