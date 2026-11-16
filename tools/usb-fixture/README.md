@@ -1,0 +1,63 @@
+# Disposable USB fixture
+
+This standalone Android app is only for testing Tidyra on a device. It creates a
+16 MiB cache file plus internal and external keep markers. Its package is
+`digital.jinatra.usbfixture`; it contains no user data.
+
+From the repository root, with the Android SDK and JDK configured:
+
+```powershell
+.\gradlew.bat -p tools/usb-fixture assembleDebug
+.\gradlew.bat '-Ptidyra.usbTests=true' assembleUsbTest assembleUsbTestAndroidTest
+# Optimized production-equivalent code, same isolated package:
+.\gradlew.bat '-Ptidyra.usbReleaseTests=true' assembleUsbRelease assembleUsbReleaseAndroidTest
+```
+
+Choose one ADB serial explicitly. Install and launch the fixture, install
+`app/build/outputs/apk/usbTest/app-usbTest.apk`, and grant Shizuku access to
+**Tidyra USB Test**. This variant uses a separate package so the original Tidyra
+install and its trash remain intact even when another PC signed that install.
+
+Install `app/build/outputs/apk/androidTest/usbTest/app-usbTest-androidTest.apk`, then:
+
+```text
+adb -s SERIAL shell am instrument -w -r -e tidyra.usbFixture true -e class digital.jinatra.tidyra.UsbShizukuTest digital.jinatra.tidyra.usbtest.test/androidx.test.runner.AndroidJUnitRunner
+```
+
+The suite requires the isolated variant and an explicit opt-in. It checks remote
+command completion, protected-package refusal, restricted-folder measurements,
+cache clearing with keep-marker preservation, and fixture-only uninstall.
+**A passing safety check does not imply cache clearing succeeded.** Read
+`cacheClearOutcome`: a device timeout must be reported as a failed operation,
+with Settings offered as the fallback. App data must remain intact either way.
+
+The final system-dialog test is skipped by default. Reinstall and launch the
+fixture, then run only `UsbShizukuTest#z_requestSystemDialog` with both
+`tidyra.usbFixture=true` and `tidyra.systemDialog=true`; cancel/confirm the Android
+dialog interactively. The default suite uninstalls the disposable fixture.
+
+Do not uninstall an existing Tidyra package to resolve a signing-key mismatch:
+its app-owned trash may contain files that need restoring.
+
+## Restart recovery
+
+With the optimized target and test APK installed, run `ReleaseRecoveryTest#prepareForRestart`
+with `-e tidyra.recoveryFixture true`, force-stop `digital.jinatra.tidyra.usbtest`,
+then run `ReleaseRecoveryTest#recoverAfterRestart` with the same argument. These are
+two separate instrumentation sessions. The fixture refuses to overwrite a prior QA
+directory. It checks persistent undo on emulated external storage, name collisions,
+partial-copy reconciliation, and legacy orphan recovery. All files belong to the
+isolated app's own private or external directories.
+
+## Optional native AI smoke test
+
+Push the open SmolLM 135M task file (166,754,726 bytes) to
+`/sdcard/Android/data/digital.jinatra.tidyra.usbtest/files/release-ai-fixture.task`.
+Run `ReleaseAiTest` with `-e tidyra.aiFixture true`. It checks the real optimized
+MediaPipe runtime loads, produces nonblank text, unloads, and rejects generation
+without a loaded model. It removes its model fixture after success. This is a runtime
+smoke test, not a claim about answer quality or every supported model/device.
+
+The release tests use a small continuation/latch bridge so they do not depend on
+coroutine facade classes removed from the target by optimization. Public tested API
+boundaries and the Kotlin runtime are retained across the separate test APK.

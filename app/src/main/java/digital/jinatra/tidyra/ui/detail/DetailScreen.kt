@@ -131,7 +131,7 @@ fun FindingDetailScreen(
                             color = colors.onSurface,
                         )
                         Text(
-                            text = "GEMMA, ON THIS PHONE - ADVISORY ONLY",
+                            text = "ON-DEVICE MODEL — ADVISORY ONLY",
                             style = type.stencil,
                             color = colors.onSurfaceVariant,
                             modifier = Modifier.padding(top = Module.u),
@@ -143,7 +143,7 @@ fun FindingDetailScreen(
                             contentPadding = PaddingValues(0.dp),
                         ) {
                             Text(
-                                text = if (explaining) "ASKING GEMMA" else "ASK GEMMA WHAT THESE ARE",
+                                text = if (explaining) "ASKING THE MODEL" else "ASK THE MODEL WHAT THESE ARE",
                                 style = type.stencil,
                                 color = MaterialTheme.colorScheme.primary,
                             )
@@ -157,7 +157,9 @@ fun FindingDetailScreen(
         if (appFinding) {
             item {
                 Text(
-                    text = "These are apps, not files. Android uninstalls them through its own dialog, one at a time, so each row below acts on its own.",
+                    text = if (finding.kind == FindingKind.APP_CACHE)
+                        "Review cache one app at a time. With Shizuku, you confirm cache-only clearing; otherwise the row opens Android's app settings."
+                        else "Uninstall one app at a time. Each row asks for confirmation, through Tidyra when Shizuku is paired or through Android otherwise. App data is removed too.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = colors.onSurfaceVariant,
                     modifier = Modifier.padding(horizontal = Module.x3, vertical = Module.x2),
@@ -200,6 +202,8 @@ fun FindingDetailScreen(
                 onToggle = if (appFinding) null else ({ picked: Boolean -> onToggleItem(item.path, picked) }),
                 action = if (finding.kind == FindingKind.UNUSED_APP) {
                     "UNINSTALL" to { onAppAction(item.packageName ?: item.path) }
+                } else if (finding.kind == FindingKind.APP_CACHE) {
+                    "CACHE" to { onAppAction(item.packageName ?: item.path) }
                 } else {
                     null
                 },
@@ -351,10 +355,8 @@ private fun ItemRow(
     }
 }
 
-private val formatter = SimpleDateFormat("d MMM yyyy", Locale.getDefault())
-
 private fun dateOf(millis: Long): String =
-    if (millis <= 0) "never opened" else formatter.format(Date(millis))
+    if (millis <= 0) "never opened" else SimpleDateFormat("d MMM yyyy", Locale.getDefault()).format(Date(millis))
 
 /**
  * The way back. The arrow is drawn, not typed: a Unicode arrow set in the label's font

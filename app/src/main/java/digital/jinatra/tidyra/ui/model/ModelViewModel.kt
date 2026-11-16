@@ -55,7 +55,17 @@ class ModelViewModel(app: Application) : AndroidViewModel(app) {
         val context = getApplication<Application>()
         _state.update { current ->
             current.copy(
-                entries = ModelCatalog.models.map { model ->
+                entries = (ModelCatalog.models + ModelCatalog.installed(context)
+                    .filter { it.extension == "task" && it.name !in ModelCatalog.models.map { model -> model.fileName } }
+                    .map { file -> ModelCatalog.Model(
+                        id = "imported-${file.name}", name = file.name.substringAfter('_', file.name), parameters = "Imported .task",
+                        downloadBytes = Bytes(file.length()), requiredRamGb = if (file.length() > 300L * 1024 * 1024) 4 else 2,
+                        multimodal = false, url = "", fileName = file.name,
+                        description = "Imported on this phone. Loading depends on the model's task format and available memory.",
+                        needsHuggingFaceToken = false,
+                        template = if (file.name.contains("smol", true) || file.name.contains("qwen", true))
+                            digital.jinatra.tidyra.ai.PromptTemplate.CHATML else digital.jinatra.tidyra.ai.PromptTemplate.GEMMA,
+                        licence = "Your imported model's licence") }).map { model ->
                     val file = ModelCatalog.fileFor(context, model)
                     val existing = current.entries.firstOrNull { it.model.id == model.id }
                     ModelState.Entry(
@@ -111,9 +121,10 @@ class ModelViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun delete(model: ModelCatalog.Model) {
+        if (_state.value.loading) return
         viewModelScope.launch {
             if (_state.value.loadedModelPath == ModelCatalog.fileFor(getApplication(), model).absolutePath) {
-                engine.unload()
+                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { engine.unload() }
                 _state.update { it.copy(loadedModelPath = null) }
             }
             downloader.delete(model)
@@ -125,12 +136,19 @@ class ModelViewModel(app: Application) : AndroidViewModel(app) {
     fun import(uri: Uri, displayName: String) {
         viewModelScope.launch {
             val context = getApplication<Application>()
-            val target = File(ModelCatalog.modelDir(context), displayName)
-            val ok = runCatching {
-                context.contentResolver.openInputStream(uri)?.use { input ->
-                    target.outputStream().use { output -> input.copyTo(output) }
-                } != null
-            }.getOrDefault(false)
+            val target = File(ModelCatalog.modelDir(context), java.util.UUID.randomUUID().toString() + "_" + File(displayName).name)
+            val partial = File(target.path + ".part")
+            val ok = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                runCatching {
+                    require(target.extension == "task") { "Choose a .task model file" }
+                    context.contentResolver.openInputStream(uri)?.use { input ->
+                        java.io.FileOutputStream(partial).use { output -> input.copyTo(output); output.fd.sync() }
+                    } ?: error("File could not be opened")
+                    check(partial.length() > 0 && partial.renameTo(target)) { "Model file was empty or could not be saved" }
+                    true
+                }.getOrDefault(false)
+            }
+            if (!ok) partial.delete()
 
             _state.update {
                 it.copy(message = if (ok) "Imported ${target.name}" else "That file could not be read")
@@ -140,6 +158,8 @@ class ModelViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun load(model: ModelCatalog.Model) {
+        if (_state.value.loading) return
+        _state.update { it.copy(loading = true, message = null) }
         viewModelScope.launch {
             val path = ModelCatalog.fileFor(getApplication(), model).absolutePath
             _state.update { it.copy(loading = true, message = null) }
@@ -156,8 +176,12 @@ class ModelViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun unload() {
-        engine.unload()
-        _state.update { it.copy(loadedModelPath = null, message = "Model unloaded. Memory returned.") }
+        if (_state.value.loading) return
+        _state.update { it.copy(loading = true) }
+        viewModelScope.launch {
+            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { engine.unload() }
+            _state.update { it.copy(loading = false, loadedModelPath = null, message = "Model unloaded. Memory returned.") }
+        }
     }
 
     fun dismissMessage() = _state.update { it.copy(message = null) }

@@ -1,6 +1,6 @@
 # Tidyra — Product Requirements
 
-**Owner:** Jinatra · **Status:** v0.1 in development · **Last updated:** 2026-11-13
+**Owner:** Jinatra · **Status:** v0.1.0 direct-APK release · **Last updated:** 2026-11-16
 
 ---
 
@@ -40,11 +40,11 @@ These are testable commitments, not values.
 |---|---|
 | Storage snapshot | Capacity and free space with no permission at all; category breakdown after a scan |
 | Shared-storage scan | One cancellable walk producing categories, large files, empty folders, stale installers, loose files |
-| Duplicate detection | Size → 8 KB edge hash → full SHA-256. Oldest copy kept. Unreadable files can never match |
+| Duplicate detection | Size → 8 KB edge hash → full SHA-256. Prefer the camera/original location, then the oldest copy within that rank. Unreadable files can never match |
 | App inventory | Per-app app/data/cache size and time since last use; unused-app and cache findings |
 | Approval gate | Per-finding selection, a plan total that counts overlapping items once, explicit confirmation |
-| Trash | App-owned, with restore and timed purge. Trashed and freed reported separately |
-| Organiser | Plan-then-apply filing of loose files into 8 type buckets, with one-step undo. Never deletes |
+| Trash | App-owned, with restore, timed purge, and interrupted-copy reconciliation. Uncertain recovery entries require manual review. Trashed and freed reported separately |
+| Organiser | Plan-then-apply filing of loose files into 8 type buckets, with persisted latest-batch undo. Never deletes or overwrites existing files |
 | Shizuku mode | Cache trim, restricted-directory reads, uninstall — all optional, all degrading cleanly |
 | On-device AI | In-app model catalogue, resumable download, load/unload, explanation of findings |
 
@@ -62,7 +62,7 @@ A one-tap clean. A score or rating out of 100. Notifications nagging about stora
 
 **Clean.** Review findings → select specific ones → the plan total appears, counting shared items once → confirm → items move to trash → result states what moved, what failed, and that the space returns when the trash is emptied.
 
-**Organise.** Pick a folder → see the complete planned layout, file by file, before anything moves → apply → undo available in one step.
+**Organise.** Pick a folder → see the complete planned layout, file by file, before anything moves → apply → undo remains available after closing or restarting. Restore-name collisions receive numbered names.
 
 **AI.** Model screen → pick a model, see its size and whether this phone can run it → download (resumable) → load → findings gain plain-language explanations. Everything works without this step.
 
@@ -72,7 +72,7 @@ A one-tap clean. A score or rating out of 100. Notifications nagging about stora
 |---|---|
 | No recycle bin on Android | The app keeps its own trash; "undo" has to be built, not promised |
 | `Android/data` unreadable since Android 11 | Chat-app media in `Android/data` is invisible without Shizuku; `Android/media` is readable |
-| Only the system can clear another app's cache | Cache clearing is Shizuku-only; the fallback is a deep link per app |
+| Only the system can clear another app's cache | Cache-only clearing requires Shizuku and OS support; timeout/unsupported capability is remembered for that system build and falls back to Storage Settings |
 | `MANAGE_EXTERNAL_STORAGE` is manually reviewed on Play | F-Droid and direct APK are the distribution path; Play is not a v1 target |
 | MediaPipe ships prebuilt `.so` files | May conflict with F-Droid's build-from-source policy. `LlmEngine` is an interface so a llama.cpp-from-source backend can replace it without touching the UI |
 

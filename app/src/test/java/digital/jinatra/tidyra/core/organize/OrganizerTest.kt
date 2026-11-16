@@ -2,6 +2,7 @@ package digital.jinatra.tidyra.core.organize
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
+import org.junit.Assert.assertFalse
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
@@ -18,6 +19,16 @@ class OrganizerTest {
     val folder = TemporaryFolder()
 
     private val organizer = Organizer()
+
+    @Test
+    fun `undo leaves a filed copy that changed after organising alone`() = kotlinx.coroutines.runBlocking {
+        val source = file("invoice.pdf")
+        val result = organizer.apply(organizer.plan(folder.root))
+        result.moved.single().to.writeText("a new invoice that someone edited")
+        assertEquals(0, organizer.undo(result))
+        assertFalse(source.exists())
+        assertEquals("a new invoice that someone edited", result.moved.single().to.readText())
+    }
 
     private fun file(name: String, bytes: Int = 16): File =
         folder.newFile(name).apply { writeBytes(ByteArray(bytes)) }
@@ -81,5 +92,32 @@ class OrganizerTest {
 
         assertEquals(1, organizer.undo(result))
         assertTrue(source.exists())
+    }
+
+    @Test
+    fun `destination created after preview is preserved`() = kotlinx.coroutines.runBlocking {
+        val source = file("invoice.pdf")
+        source.writeText("original invoice")
+        val plan = organizer.plan(folder.root)
+        val target = plan.moves.single().to
+        target.parentFile!!.mkdirs()
+        target.writeText("new invoice")
+        val result = organizer.apply(plan)
+        assertTrue(result.moved.isEmpty())
+        assertEquals(1, result.failed.size)
+        assertEquals("original invoice", source.readText())
+        assertEquals("new invoice", target.readText())
+    }
+
+    @Test
+    fun `undo preserves a replacement at the original path`() = kotlinx.coroutines.runBlocking {
+        val source = file("holiday.jpg").apply { writeText("old photo") }
+        val result = organizer.apply(organizer.plan(folder.root))
+        source.writeText("new photo")
+        File(folder.root, "holiday-restored.jpg").writeText("another photo")
+        assertEquals(1, organizer.undo(result))
+        assertEquals("new photo", source.readText())
+        assertEquals("another photo", File(folder.root, "holiday-restored.jpg").readText())
+        assertEquals("old photo", File(folder.root, "holiday-restored-2.jpg").readText())
     }
 }

@@ -1,8 +1,16 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.serialization)
+}
+
+val signingPropertiesFile = rootProject.file(providers.environmentVariable("TIDYRA_SIGNING_PROPERTIES")
+    .orElse(".signing/keystore.properties").get())
+val releaseCredentials = Properties().apply {
+    if (signingPropertiesFile.isFile) signingPropertiesFile.inputStream().use { load(it) }
 }
 
 android {
@@ -11,11 +19,12 @@ android {
 
     defaultConfig {
         applicationId = "digital.jinatra.tidyra"
-        minSdk = 29
+        minSdk = 30
         targetSdk = 36
         versionCode = 1
         versionName = "0.1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        manifestPlaceholders["tidyraLabel"] = "@string/app_name"
         vectorDrawables.useSupportLibrary = true
     }
 
@@ -24,12 +33,44 @@ android {
             applicationIdSuffix = ".debug"
             versionNameSuffix = "-debug"
         }
+        // Physical-device QA stays separate from an install signed by another machine.
+        create("usbTest") {
+            initWith(getByName("debug"))
+            applicationIdSuffix = ".usbtest"
+            versionNameSuffix = "-usbtest"
+            resValue("string", "usb_test_app_name", "Tidyra USB Test")
+            manifestPlaceholders["tidyraLabel"] = "@string/usb_test_app_name"
+            matchingFallbacks += listOf("debug")
+        }
         release {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             // F-Droid builds this from source and signs it itself; no local signing config.
         }
+    }
+    if (releaseCredentials.isNotEmpty()) {
+        val releaseKey = signingConfigs.create("localRelease") {
+            storeFile = rootProject.file(releaseCredentials.getProperty("storeFile"))
+            storePassword = releaseCredentials.getProperty("storePassword")
+            keyAlias = releaseCredentials.getProperty("keyAlias")
+            keyPassword = releaseCredentials.getProperty("keyPassword")
+        }
+        buildTypes.getByName("release").signingConfig = releaseKey
+    }
+    buildTypes.create("usbRelease") {
+        initWith(buildTypes.getByName("release"))
+        applicationIdSuffix = ".usbtest"
+        versionNameSuffix = "-usbtest-release"
+        signingConfig = signingConfigs.getByName("debug")
+        resValue("string", "usb_test_app_name", "Tidyra USB Test")
+        manifestPlaceholders["tidyraLabel"] = "@string/usb_test_app_name"
+        matchingFallbacks += listOf("release")
+    }
+    testBuildType = when {
+        providers.gradleProperty("tidyra.usbReleaseTests").isPresent -> "usbRelease"
+        providers.gradleProperty("tidyra.usbTests").isPresent -> "usbTest"
+        else -> "debug"
     }
 
     compileOptions {
@@ -84,5 +125,8 @@ dependencies {
     implementation(libs.mediapipe.tasks.genai)
 
     testImplementation(libs.junit)
+    testImplementation("org.json:json:20240303")
+    testImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")
     androidTestImplementation(libs.androidx.junit)
+    androidTestImplementation("androidx.test:runner:1.7.0")
 }

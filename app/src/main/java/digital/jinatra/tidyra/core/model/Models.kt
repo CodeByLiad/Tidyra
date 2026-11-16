@@ -37,6 +37,7 @@ data class StorageSnapshot(
     val freeBytes: Bytes,
     val byCategory: Map<StorageCategory, Bytes>,
     val takenAtMillis: Long,
+    val sharedMediaByPackage: Map<String, Bytes> = emptyMap(),
 ) {
     val usedBytes: Bytes get() = totalBytes - freeBytes
 }
@@ -61,7 +62,9 @@ enum class FindingKind {
     UNUSED_APP,
     LARGE_FILE,
     CHAT_MEDIA,
-    LOOSE_FILES,
+    LOOSE_FILES;
+
+    val canTrash: Boolean get() = this != APP_CACHE && this != UNUSED_APP && this != LOOSE_FILES
 }
 
 /**
@@ -104,18 +107,11 @@ data class ActionPlan(
     val approved: List<Finding>,
     val itemPaths: Set<String>,
 ) {
-    val frees: Bytes = run {
-        val seen = HashSet<String>()
-        var total = 0L
-        approved.forEach { finding ->
-            finding.items.forEach { item ->
-                if (item.path in itemPaths && seen.add(item.path)) total += item.size.value
-            }
-        }
-        Bytes(total)
-    }
+    val fileItems: List<Finding.Item> = approved.filter { it.kind.canTrash }
+        .flatMap { it.items }.filter { it.path in itemPaths }.distinctBy { it.path }
+    val frees: Bytes = Bytes(fileItems.sumOf { it.size.value })
 
-    val itemCount: Int get() = itemPaths.size
+    val itemCount: Int get() = fileItems.size
 }
 
 /** The result of carrying a plan out. Reported exactly, including what did not work. */

@@ -56,18 +56,7 @@ object ModelCatalog {
             multimodal = false,
             url = "https://huggingface.co/litert-community/Gemma3-1B-IT/resolve/main/gemma3-1b-it-int4.task",
             fileName = "gemma3-1b-it-int4.task",
-            description = "Explains findings, groups files and drafts the cleanup plan. Fast on most phones. Text only.",
-        ),
-        Model(
-            id = "gemma-3n-e2b-it",
-            name = "Gemma 3n E2B",
-            parameters = "2B effective, int4",
-            downloadBytes = Bytes(3100L * 1024 * 1024),
-            requiredRamGb = 8,
-            multimodal = true,
-            url = "https://huggingface.co/google/gemma-3n-E2B-it-litert-preview/resolve/main/gemma-3n-E2B-it-int4.task",
-            fileName = "gemma-3n-E2B-it-int4.task",
-            description = "Can look at the photos themselves — spots blurry shots and near-identical bursts. Large download, slower to load.",
+            description = "Explains findings in plain language, on this phone. Text only; it never chooses files or changes a cleanup plan.",
         ),
     )
 

@@ -1,5 +1,6 @@
 *.iml
 .gradle/
+.kotlin/
 local.properties
 .idea/
 .DS_Store
@@ -18,3 +19,7 @@ captures/
 
 # Phone backups pulled over ADB during development — never commit someone's files.
 phone-backup/
+
+# Release keys and passwords must remain local, never in Git or a release archive.
+.signing/
+keystore.properties

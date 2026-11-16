@@ -2,7 +2,16 @@ package digital.jinatra.tidyra.core.shizuku
 
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
+import android.content.Context
+import android.content.pm.ApplicationInfo
+import android.os.Process as AndroidProcess
+import android.os.Build
+import digital.jinatra.tidyra.core.safety.Protected
+import java.util.concurrent.TimeUnit
 import rikka.shizuku.Shizuku
+import rikka.shizuku.ShizukuRemoteProcess
 import java.io.BufferedReader
 
 /**
@@ -14,7 +23,12 @@ import java.io.BufferedReader
  * expected to fail on a phone that has never heard of Shizuku, and the UI is written
  * for that case first.
  */
-class ShizukuBridge {
+class ShizukuBridge(private val context: Context) {
+    private val capabilities = context.getSharedPreferences("shizuku_capabilities", Context.MODE_PRIVATE)
+    fun canClearCache(): Boolean = capabilities.getString("cache_unavailable_build", null) != Build.FINGERPRINT
+    private fun markCacheUnavailable() { capabilities.edit().putString("cache_unavailable_build", Build.FINGERPRINT).apply() }
+    // Android assigns each profile a block of 100,000 UIDs. Stay in the caller's profile.
+    private val userId get() = (AndroidProcess.myUid() / 100_000).toString()
 
     enum class State {
         /** Shizuku is not installed, or its service is not running. */
@@ -68,36 +82,81 @@ class ShizukuBridge {
             ).apply { isAccessible = true }
 
             @Suppress("UNCHECKED_CAST")
-            val process = method.invoke(null, arrayOf(*command), null, null) as Process
-            val out = process.inputStream.bufferedReader().use(BufferedReader::readText)
-            val err = process.errorStream.bufferedReader().use(BufferedReader::readText)
-            val code = process.waitFor()
-            ShellResult(code, out, err)
+            val process = method.invoke(null, arrayOf(*command), null, null) as ShizukuRemoteProcess
+            coroutineScope {
+                val out = async(Dispatchers.IO) { process.inputStream.bufferedReader().use(BufferedReader::readText) }
+                val err = async(Dispatchers.IO) { process.errorStream.bufferedReader().use(BufferedReader::readText) }
+                try {
+                    // Process.waitFor(timeout) uses local process state on Android. Shizuku
+                    // exposes its own Binder-backed wait; using the inherited one can return
+                    // before the remote process exits and then make exitValue() throw.
+                    if (!process.waitForTimeout(30, TimeUnit.SECONDS)) {
+                        process.destroy()
+                        ShellResult(-1, out.await(), "Shizuku command timed out. ${err.await()}")
+                    } else ShellResult(process.exitValue(), out.await(), err.await())
+                } finally { process.destroy() }
+            }
         }.getOrElse { error ->
             ShellResult(-1, "", error.message ?: error::class.java.simpleName)
         }
     }
 
-    /**
-     * Trims every app's cache. This is the one job that makes Shizuku worth pairing:
-     * a normal app cannot clear another app's cache at all.
-     */
-    suspend fun trimAllCaches(): ShellResult = exec("pm", "trim-caches", "${Long.MAX_VALUE}")
+    suspend fun clearCache(packageName: String): ShellResult {
+        if (!allowedPackage(packageName)) return ShellResult(-1, "", "This package is protected or unavailable")
+        if (!canClearCache()) return ShellResult(-1, "", "Cache-only clearing did not complete on this Android build. Use the app's storage settings.")
+        // Old Android releases can ignore unknown flags. Never risk clearing app data.
+        val help = exec("cmd", "package", "help")
+        if (!help.ok || !Regex("clear[^\\n]*\\[--cache-only\\]").containsMatchIn(help.stdout)) {
+            if (help.ok) markCacheUnavailable()
+            return ShellResult(-1, "", "This Android version does not advertise cache-only clearing")
+        }
+        // Invoke the service client directly, so timing out kills the actual command
+        // instead of leaving cmd running beneath the /system/bin/pm shell wrapper.
+        val result = exec("cmd", "package", "clear", "--user", userId, "--cache-only", packageName)
+        if (result.stderr.contains("timed out", ignoreCase = true)) markCacheUnavailable()
+        return result
+    }
 
-    suspend fun clearCache(packageName: String): ShellResult =
-        exec("pm", "clear", "--cache-only", packageName)
+    private fun allowedPackage(packageName: String): Boolean = runCatching {
+        if (!Regex("[A-Za-z][A-Za-z0-9_]*(\\.[A-Za-z0-9_]+)+").matches(packageName)) return@runCatching false
+        val info = context.packageManager.getApplicationInfo(packageName, 0)
+        !Protected.isProtectedPackage(packageName, info.flags and
+            (ApplicationInfo.FLAG_SYSTEM or ApplicationInfo.FLAG_UPDATED_SYSTEM_APP) != 0)
+    }.getOrDefault(false)
 
     /**
      * Shell-level uninstall. Guarded here as well as in the UI: this runs with ADB
      * rights, so a wrong package name is not a bad screen, it is a broken phone.
      */
     suspend fun uninstall(packageName: String): ShellResult {
-        if (digital.jinatra.tidyra.core.safety.Protected.isProtectedPackage(packageName, isSystem = false)) {
+        if (!allowedPackage(packageName)) {
             return ShellResult(-1, "", "Refused: $packageName is protected")
         }
-        return exec("pm", "uninstall", "--user", "0", packageName)
+        return exec("cmd", "package", "uninstall", "--user", userId, packageName)
     }
 
-    /** Sizes inside another app's Android/data, which is unreadable to us on Android 11+. */
-    suspend fun duOfRestrictedDir(path: String): ShellResult = exec("du", "-sk", path)
+    data class RestrictedResult(val folders: List<RestrictedFolder>, val note: String?)
+
+    suspend fun restrictedFolders(): RestrictedResult {
+        val folders = mutableListOf<RestrictedFolder>()
+        val packages = context.packageManager.getInstalledApplications(0)
+            .filter { it.flags and ApplicationInfo.FLAG_SYSTEM == 0 }.map { it.packageName }
+        var incomplete = false
+        for (name in listOf("data", "obb")) {
+            val root = "/storage/emulated/$userId/Android/$name"
+            val result = exec("du", "-k", "-d", "1", root)
+            folders += RestrictedFolder.parse(result.stdout, root)
+            if (!result.ok) incomplete = true
+            // Android can hide newly installed packages from the parent directory
+            // listing while allowing a known path. Measure installed user packages too.
+            for (batch in packages.chunked(64)) {
+                val known = exec("du", "-k", "-s", *batch.map { "$root/$it" }.toTypedArray())
+                folders += RestrictedFolder.parse(known.stdout, root)
+                // Most apps have no directory here. Missing paths are expected.
+                if (known.stderr.contains("Permission denied", ignoreCase = true) || known.exitCode == -1) incomplete = true
+            }
+        }
+        return RestrictedResult(folders.distinctBy { it.path }.sortedByDescending { it.size.value },
+            if (incomplete) "Some restricted folders could not be read. Shizuku access varies by Android version." else null)
+    }
 }

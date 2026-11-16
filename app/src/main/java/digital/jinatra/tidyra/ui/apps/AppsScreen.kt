@@ -54,7 +54,9 @@ fun AppsScreen(
     shizuku: ShizukuBridge.State,
     onUninstall: (String) -> Unit,
     onOpenAppSettings: (String) -> Unit,
-    onClearAllCaches: () -> Unit,
+    onClearCache: (String) -> Unit,
+    canClearCache: Boolean,
+    working: Boolean,
     onGrantUsage: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -63,7 +65,8 @@ fun AppsScreen(
     val thirdParty = apps.filterNot { it.isSystem }
     // Count what the list shows. A headline measuring every package on the phone,
     // over a list of the ones you installed, is two numbers the reader cannot reconcile.
-    val cacheTotal = thirdParty.sumOf { it.cacheBytes.value }
+    val storageGroups = digital.jinatra.tidyra.core.scan.StorageAccounting.groups(thirdParty, null)
+    val cacheTotal = storageGroups.sumOf { it.cacheBytes.value }
 
     LazyColumn(
         modifier = modifier.fillMaxWidth(),
@@ -78,8 +81,8 @@ fun AppsScreen(
                     // same bytes into two categories, so without this line the reader is
                     // handed two different totals for "apps" and no way to reconcile them.
                     text = if (hasUsageAccess) {
-                        "${Format.count(thirdParty.size, "app")} installed, holding ${Format.size(digital.jinatra.tidyra.core.model.Bytes(thirdParty.sumOf { it.totalBytes.value }))}" +
-                            " \u2014 app code, data and cache together. Storage lists code and data separately."
+                        "${Format.count(thirdParty.size, "app")} installed, holding ${Format.size(digital.jinatra.tidyra.core.model.Bytes(storageGroups.sumOf { it.appBytes.value + it.dataBytes.value }))}" +
+                            " \u2014 Android's app totals include shared media. Storage separates shared media by type. Shared app storage groups are counted once."
                     } else {
                         "Usage access is off, so sizes are hidden"
                     },
@@ -114,8 +117,10 @@ fun AppsScreen(
                             color = colors.onSurface,
                         )
                         Text(
-                            text = if (shizuku == ShizukuBridge.State.READY) {
-                                "Shizuku is paired, so this clears in one tap. Nothing is lost — not logins, not downloads."
+                            text = if (shizuku == ShizukuBridge.State.READY && !canClearCache) {
+                                "Android's cache-only command did not complete on this phone. Cache actions open the app's storage settings instead. App data is never cleared as a fallback."
+                            } else if (shizuku == ShizukuBridge.State.READY) {
+                                "Review an app below to clear only its cache. You confirm each app before Shizuku acts."
                             } else {
                                 "Android blocks this without Shizuku. Tap an app below to open its storage screen instead."
                             },
@@ -124,18 +129,14 @@ fun AppsScreen(
                             modifier = Modifier.padding(top = Module.half),
                         )
                     }
-                    if (shizuku == ShizukuBridge.State.READY) {
-                        TextButton(onClick = onClearAllCaches) {
-                            Text("CLEAR", style = type.stencil, color = MaterialTheme.colorScheme.primary)
-                        }
-                    }
                 }
                 HorizontalDivider(color = colors.outline)
             }
         }
 
         items(thirdParty, key = { it.packageName }) { app ->
-            AppRow(app, onOpenAppSettings, onUninstall)
+            AppRow(app, onOpenAppSettings, onUninstall, onClearCache, working,
+                canClearCache && shizuku == ShizukuBridge.State.READY)
         }
     }
 }
@@ -145,6 +146,9 @@ private fun AppRow(
     app: AppInventory.AppEntry,
     onOpenAppSettings: (String) -> Unit,
     onUninstall: (String) -> Unit,
+    onClearCache: (String) -> Unit,
+    working: Boolean,
+    canClearCache: Boolean,
 ) {
     val type = LocalStationType.current
     val colors = MaterialTheme.colorScheme
@@ -195,10 +199,15 @@ private fun AppRow(
                 )
                 TextButton(
                     onClick = { onUninstall(app.packageName) },
+                    enabled = !working && !digital.jinatra.tidyra.core.safety.Protected.isProtectedPackage(app.packageName, app.isSystem),
                     contentPadding = PaddingValues(0.dp),
                 ) {
                     Text("UNINSTALL", style = type.stencil, color = MaterialTheme.colorScheme.primary)
                 }
+                if (app.cacheBytes.value > 0) TextButton(
+                    onClick = { onClearCache(app.packageName) }, enabled = !working,
+                    contentPadding = PaddingValues(0.dp),
+                ) { Text(if (canClearCache) "CACHE" else "STORAGE SETTINGS", style = type.stencil) }
             }
         }
         HorizontalDivider(color = colors.outlineVariant)

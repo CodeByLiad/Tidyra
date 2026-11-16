@@ -20,6 +20,16 @@ import digital.jinatra.tidyra.ui.model.ModelViewModel
 import digital.jinatra.tidyra.ui.organize.OrganizeViewModel
 import digital.jinatra.tidyra.ui.station.StationViewModel
 import digital.jinatra.tidyra.ui.theme.TidyraTheme
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import digital.jinatra.tidyra.core.shizuku.ShizukuBridge
+import digital.jinatra.tidyra.core.safety.Protected
+import android.content.pm.ApplicationInfo
+import androidx.compose.runtime.SideEffect
+import androidx.core.view.WindowCompat
+import androidx.compose.foundation.shape.RoundedCornerShape
+import digital.jinatra.tidyra.ui.theme.Module
 
 class MainActivity : ComponentActivity() {
 
@@ -41,11 +51,18 @@ class MainActivity : ComponentActivity() {
         setContent {
             var dark by rememberSaveable { mutableStateOf<Boolean?>(null) }
             val isDark = dark ?: isSystemInDarkTheme()
+            SideEffect {
+                WindowCompat.getInsetsController(window, window.decorView).apply {
+                    isAppearanceLightStatusBars = !isDark
+                    isAppearanceLightNavigationBars = !isDark
+                }
+            }
 
             TidyraTheme(darkTheme = isDark) {
                 val station by stationModel.state.collectAsStateWithLifecycle()
                 val organize by organizeModel.state.collectAsStateWithLifecycle()
                 val ai by aiModel.state.collectAsStateWithLifecycle()
+                var requestedAction by rememberSaveable { mutableStateOf<Pair<String, Boolean>?>(null) }
 
                 Root(
                     station = station,
@@ -67,9 +84,17 @@ class MainActivity : ComponentActivity() {
                         onApprove = stationModel::applyPlan,
                         onGrantAllFiles = ::requestAllFilesAccess,
                         onGrantUsage = ::requestUsageAccess,
-                        onUninstall = ::uninstall,
+                        onUninstall = { pkg ->
+                            if (station.shizuku == ShizukuBridge.State.READY) requestedAction = pkg to true
+                            else uninstall(pkg)
+                        },
                         onOpenAppSettings = ::openAppSettings,
-                        onClearAllCaches = { stationModel.clearCachesWithShizuku { _, _ -> } },
+                        onClearCache = { pkg ->
+                            if (station.shizuku == ShizukuBridge.State.READY && station.canClearCache) requestedAction = pkg to false
+                            else openAppSettings(pkg)
+                        },
+                        onRetentionDays = stationModel::setRetentionDays,
+                        onDismissMessage = stationModel::dismissMessage,
                         onSelectFolder = organizeModel::select,
                         onApplyOrganise = organizeModel::apply,
                         onUndoOrganise = organizeModel::undo,
@@ -82,6 +107,24 @@ class MainActivity : ComponentActivity() {
                         onImportModel = { pickModelFile.launch(arrayOf("*/*")) },
                     ),
                 )
+                requestedAction?.let { (pkg, removing) ->
+                    val name = station.apps.firstOrNull { it.packageName == pkg }?.label ?: pkg
+                    AlertDialog(
+                        shape = RoundedCornerShape(Module.half),
+                        onDismissRequest = { requestedAction = null },
+                        title = { Text(if (removing) "Uninstall $name?" else "Clear cache for $name?") },
+                        text = { Text(if (removing)
+                            "$pkg and its app data will be removed using Shizuku. This bypasses Android's uninstall dialog and cannot be undone through Tidyra's trash."
+                            else "$pkg will lose only its temporary cache. It may load more slowly next time. App data and logins stay. If cache-only clearing is unsupported, nothing will be cleared.") },
+                        confirmButton = {
+                            TextButton(enabled = !station.working && !station.scanning, onClick = {
+                                requestedAction = null
+                                if (removing) stationModel.uninstallWithShizuku(pkg) else stationModel.clearCacheWithShizuku(pkg)
+                            }) { Text(if (removing) "UNINSTALL" else "CLEAR CACHE") }
+                        },
+                        dismissButton = { TextButton(onClick = { requestedAction = null }) { Text("CANCEL") } },
+                    )
+                }
             }
         }
     }
@@ -130,6 +173,9 @@ class MainActivity : ComponentActivity() {
     /** Android's own dialog, one app at a time. Tidyra never uninstalls behind your back. */
     private fun uninstall(packageName: String) {
         runCatching {
+            val info = packageManager.getApplicationInfo(packageName, 0)
+            if (Protected.isProtectedPackage(packageName,
+                    info.flags and (ApplicationInfo.FLAG_SYSTEM or ApplicationInfo.FLAG_UPDATED_SYSTEM_APP) != 0)) return
             startActivity(
                 Intent(Intent.ACTION_DELETE, Uri.parse("package:$packageName")),
             )

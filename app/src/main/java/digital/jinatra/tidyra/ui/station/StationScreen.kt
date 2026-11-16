@@ -37,6 +37,12 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -92,6 +98,7 @@ fun StationScreen(
     val scale = SizeScale(state.snapshot?.totalBytes?.value ?: 0L)
     val plan = state.plan
     val colors = MaterialTheme.colorScheme
+    var showRestricted by remember { mutableStateOf(false) }
 
     Scaffold(
         modifier = modifier,
@@ -176,8 +183,8 @@ fun StationScreen(
                 item {
                     Footnote(
                         "The rule is the whole ${Format.size(state.snapshot?.totalBytes ?: Bytes.ZERO)}: " +
-                            "each segment is a category, in the order of this list, and the pale span at the end is free. " +
-                            "Sizes compare honestly across every screen.",
+                            "ink segments follow this list; the muted remainder is system or unmeasured storage. " +
+                            "Only the pale span at the end is free. Shared app media is counted by file type and subtracted from app data; shared app storage groups are counted once.",
                     )
                 }
             }
@@ -196,7 +203,27 @@ fun StationScreen(
                     )
                 }
             } else if (!state.scanning && state.containers.isNotEmpty()) {
-                item { Footnote("Nothing worth proposing. The phone is already tidy.") }
+                item { Footnote(if (!state.hasAllFilesAccess) "No findings in accessible storage. Grant file access to check your files."
+                    else if (!state.hasUsageAccess) "No file cleanup findings. App storage has not been checked without usage access."
+                    else "No cleanup findings in the storage Tidyra could read.") }
+            }
+
+            if (state.restrictedFolders.isNotEmpty() || state.restrictedNote != null) {
+                item { Rule() }
+                item { SectionHeading("Restricted folders") }
+                item { Footnote("Measured with Shizuku in allocated bytes. These folders can overlap app storage totals, so they are not added again or offered for removal.") }
+                state.restrictedNote?.let { note -> item { Footnote(note) } }
+                items(if (showRestricted) state.restrictedFolders else state.restrictedFolders.take(5), key = { it.path }) { folder ->
+                    Column(Modifier.padding(horizontal = Module.x3, vertical = Module.u)) {
+                        Text(folder.path.removePrefix("/storage/emulated/0/"), style = MaterialTheme.typography.bodyMedium)
+                        Text(Format.size(folder.size), style = type.amount, modifier = Modifier.padding(top = Module.half))
+                    }
+                }
+                if (state.restrictedFolders.size > 5) item {
+                    TextButton(onClick = { showRestricted = !showRestricted }, modifier = Modifier.padding(horizontal = Module.x3)) {
+                        Text(if (showRestricted) "SHOW FEWER" else "SHOW ALL ${state.restrictedFolders.size}", style = type.stencil)
+                    }
+                }
             }
 
             state.lastResult?.let { result ->
@@ -205,7 +232,8 @@ fun StationScreen(
                     Notice(
                         "${Format.size(result.freed)} moved to trash",
                         "${Format.count(result.itemsRemoved, "item")} are recoverable until the trash is emptied — the space returns when it is." +
-                            if (result.itemsFailed.isEmpty()) "" else " ${result.itemsFailed.size} could not be moved.",
+                            if (result.itemsFailed.isEmpty()) "" else " ${result.itemsFailed.size} could not be moved. " +
+                                result.itemsFailed.take(3).joinToString("; ") { "${it.path.substringAfterLast('/')}: ${it.reason}" },
                         null, {}, Olive,
                     )
                 }
@@ -304,8 +332,14 @@ private fun CapacityRule(state: StationState, scale: SizeScale) {
     val ink = colors.onSurface
     val accent = colors.primary
     val track = colors.surfaceContainerHighest
+    val remainder = colors.onSurfaceVariant
     val total = state.snapshot?.totalBytes ?: Bytes.ZERO
-    val usedBytes = Bytes(used.sumOf { it.bytes.value })
+    val usedBytes = state.snapshot?.usedBytes ?: Bytes.ZERO
+    // Compose respects the system animation duration scale, including Remove animations.
+    val proposedShares = used.map { container ->
+        animateFloatAsState(scale.fraction(container.proposed),
+            animationSpec = tween(420, easing = CubicBezierEasing(0.16f, 1f, 0.3f, 1f)), label = "proposed-span").value
+    }
     Canvas(
         Modifier
             .fillMaxWidth()
@@ -317,14 +351,16 @@ private fun CapacityRule(state: StationState, scale: SizeScale) {
             },
     ) {
         drawRect(track)
+        val occupied = scale.fraction(usedBytes) * size.width
+        drawRect(remainder, size = Size(occupied, size.height))
         val gap = 1.dp.toPx()
         var x = 0f
-        used.forEach { container ->
-            val w = scale.fraction(container.bytes) * size.width
-            if (w <= 0f) return@forEach
+        used.forEachIndexed { index, container ->
+            val w = (scale.fraction(container.bytes) * size.width).coerceAtMost((occupied - x).coerceAtLeast(0f))
+            if (w <= 0f) return@forEachIndexed
             drawRect(ink, topLeft = Offset(x, 0f), size = Size(w, size.height))
-            if (container.proposed.value > 0 && container.bytes.value > 0) {
-                val p = (container.proposed.value.toFloat() / container.bytes.value) * w
+            if (proposedShares[index] > 0 && container.bytes.value > 0) {
+                val p = proposedShares[index] * size.width
                 drawRect(accent, topLeft = Offset(x, 0f), size = Size(p.coerceAtMost(w), size.height))
             }
             x += w
@@ -360,7 +396,8 @@ private fun CategoryRow(
             .heightIn(min = 48.dp)
             .padding(horizontal = Module.x3, vertical = Module.u)
             .clearAndSetSemantics {
-                contentDescription = "$rank. $label, ${Format.spokenSize(bytes)}, ${(share * 100).toInt()} percent" +
+                val spokenShare = if (share > 0 && share < 0.01f) "less than one percent" else "${(share * 100).toInt()} percent"
+                contentDescription = "$rank. $label, ${Format.spokenSize(bytes)}, $spokenShare" +
                     if (proposed.value > 0) ", ${Format.spokenSize(proposed)} selected" else ""
             },
         verticalAlignment = Alignment.CenterVertically,
@@ -441,8 +478,7 @@ private fun FindingRow(
                 .padding(horizontal = Module.x3, vertical = Module.x2),
             verticalAlignment = Alignment.Top,
         ) {
-            val appFinding = finding.kind == FindingKind.UNUSED_APP ||
-                finding.kind == FindingKind.APP_CACHE
+            val appFinding = !finding.kind.canTrash
             if (appFinding) {
                 // No tick: these are uninstalled or cleared one at a time, never trashed.
                 Box(Modifier.minimumInteractiveComponentSize(), contentAlignment = Alignment.Center) {
@@ -503,7 +539,7 @@ private fun FindingRow(
                 )
                 Text(
                     text = if (pickedCount > 0 && pickedCount < finding.items.size) {
-                        "${'$'}pickedCount of ${'$'}{finding.items.size} picked · ${'$'}{Format.size(pickedBytes)}"
+                        "$pickedCount of ${finding.items.size} picked · ${Format.size(pickedBytes)}"
                     } else {
                         Format.count(finding.items.size, "item")
                     },
@@ -559,7 +595,7 @@ private fun FirstScan(onScan: () -> Unit, hasAccess: Boolean) {
             text = if (hasAccess) {
                 "A scan reads your folders, hashes files to prove which are identical, and measures every app. It takes about a minute and changes nothing."
             } else {
-                "Grant all-files access above, then scan. Tidyra reads your folders, proves which files are identical, and measures every app — changing nothing."
+                "Grant all-files access, then scan. Tidyra reads your folders, proves which files are identical, and measures every app — changing nothing."
             },
             style = MaterialTheme.typography.bodyMedium,
             color = colors.onSurfaceVariant,

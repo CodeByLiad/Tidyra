@@ -14,6 +14,7 @@ object EngineHolder {
     @Volatile
     private var instance: LlmEngine? = null
 
+    @Synchronized
     fun engine(context: Context): LlmEngine =
         instance ?: MediaPipeLlmEngine(context.applicationContext).also { instance = it }
 

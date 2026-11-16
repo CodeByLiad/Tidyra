@@ -71,7 +71,7 @@ fun ModelScreen(
         item {
             Column(Modifier.padding(start = Module.x3, end = Module.x3, top = Module.x2, bottom = Module.x2)) {
                 Text(
-                    text = "Gemma runs on this phone. Your file names, sizes and folders are never uploaded — the download below is the only network request Tidyra ever makes.",
+                    text = "AI runs on this phone. Your file names, sizes and folders are never uploaded — model downloads are the only network requests Tidyra makes.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = colors.onSurfaceVariant,
                 )

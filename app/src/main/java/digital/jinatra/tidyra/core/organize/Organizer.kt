@@ -2,9 +2,14 @@ package digital.jinatra.tidyra.core.organize
 
 import digital.jinatra.tidyra.core.model.Bytes
 import digital.jinatra.tidyra.core.safety.Protected
+import digital.jinatra.tidyra.core.safety.SafeFiles
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.util.UUID
+import java.util.concurrent.ConcurrentHashMap
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 /**
  * Files loose files into folders by type.
@@ -13,7 +18,13 @@ import java.io.File
  * in one step because the plan itself is the undo record. Nothing is deleted here, ever:
  * organising and deleting are different operations and the app never mixes them.
  */
-class Organizer {
+class Organizer(historyFile: File? = null) {
+    private val history = OrganizeHistory(historyFile)
+    private val mutex = if (historyFile == null) Mutex() else locks.getOrPut(historyFile.canonicalPath) { Mutex() }
+
+    suspend fun pending(): Result? = withContext(Dispatchers.IO) {
+        mutex.withLock { history.latest(history.recover()) }
+    }
 
     enum class Bucket(val folderName: String, val extensions: Set<String>) {
         DOCUMENTS("Documents", setOf("pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "txt", "md", "csv", "rtf", "odt", "epub")),
@@ -26,7 +37,8 @@ class Organizer {
         OTHER("Other", emptySet()),
     }
 
-    data class Move(val from: File, val to: File) {
+    data class Move(val from: File, val to: File,
+        val expectedSize: Long = from.length(), val expectedModified: Long = from.lastModified()) {
         val bucketName: String get() = to.parentFile?.name.orEmpty()
     }
 
@@ -77,28 +89,69 @@ class Organizer {
     }
 
     suspend fun apply(plan: Plan): Result = withContext(Dispatchers.IO) {
+      mutex.withLock {
+        val records = history.recover()
+        val batch = UUID.randomUUID().toString()
         val done = ArrayList<Move>()
         val failed = ArrayList<Pair<Move, String>>()
 
         for (move in plan.moves) {
-            move.to.parentFile?.mkdirs()
-            val ok = runCatching { move.from.renameTo(move.to) }.getOrDefault(false)
-            if (ok) done += move else failed += move to "Could not be moved"
+            var record: OrganizeHistory.Record? = null
+            var renamed = false
+            runCatching {
+                check(move.from.canonicalFile.parentFile == move.to.canonicalFile.parentFile?.parentFile) {
+                    "Organising must stay inside the approved folder"
+                }
+                check(Protected.reason(move.from.canonicalPath) == null) { "Protected file; left alone" }
+                check(move.from.length() == move.expectedSize && move.from.lastModified() == move.expectedModified) {
+                    "File changed since preview; preview again"
+                }
+                check(!move.to.exists()) { "Destination already exists" }
+                val prepared = OrganizeHistory.Record(batch, move, SafeFiles.digest(move.from))
+                record = prepared
+                records += prepared
+                history.save(records)
+                SafeFiles.rename(move.from, move.to)
+                renamed = true
+                done += move
+                prepared.phase = "moved"
+                history.save(records)
+            }.onFailure {
+                if (!renamed && record != null) {
+                    records.remove(record)
+                    history.save(records)
+                }
+                failed += move to (it.message ?: "Could not be moved")
+            }
         }
         Result(done, failed)
+      }
     }
 
     /** Puts every moved file back where it was. The plan is its own undo record. */
     suspend fun undo(result: Result): Int = withContext(Dispatchers.IO) {
+      mutex.withLock {
+        val records = history.recover()
         var restored = 0
         result.moved.forEach { move ->
-            move.from.parentFile?.mkdirs()
-            if (runCatching { move.to.renameTo(move.from) }.getOrDefault(false)) {
+            val record = records.firstOrNull { it.move == move } ?: return@forEach
+            if (runCatching {
+                check(history.matches(move.to, record) && move.to.lastModified() == move.expectedModified) {
+                    "Filed copy has changed; left alone"
+                }
+                val destination = SafeFiles.restoredTarget(move.from)
+                record.phase = "restoring"
+                record.restorePath = destination.absolutePath
+                history.save(records)
+                SafeFiles.rename(move.to, destination)
+                records.remove(record)
+                history.save(records)
+            }.isSuccess) {
                 restored++
-                move.to.parentFile?.takeIf { it.listFiles()?.isEmpty() == true }?.delete()
             }
         }
         restored
+      }
     }
 
     data class Result(val moved: List<Move>, val failed: List<Pair<Move, String>>)
@@ -107,4 +160,5 @@ class Organizer {
         val extension = file.extension.lowercase()
         return Bucket.entries.firstOrNull { extension in it.extensions } ?: Bucket.OTHER
     }
+    private companion object { val locks = ConcurrentHashMap<String, Mutex>() }
 }

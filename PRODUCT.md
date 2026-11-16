@@ -8,7 +8,7 @@ android
 
 ## Stack
 
-delegated: Kotlin + Jetpack Compose with Material 3 Expressive (`androidx.compose.material3`), single-module Gradle app built against compileSdk 35. Chosen because Material 3 Expressive ships natively here, and because Shizuku, MediaPipe/Gemma, `StorageStatsManager` and `UsageStatsManager` are all first-class on native Android. The user delegated this choice ("your recommendations").
+delegated: Kotlin + Jetpack Compose with Material 3 Expressive (`androidx.compose.material3`), single-module Gradle app built against compileSdk 36, minimum Android 11 (API 30). Shizuku, MediaPipe, `StorageStatsManager` and `UsageStatsManager` use native Android APIs.
 
 ## Users
 
@@ -26,8 +26,8 @@ Tidyra shows truthfully what is consuming storage on an Android phone, proposes 
 
 Three things a neighbouring cleaner cannot truthfully copy at once:
 
-1. **On-device AI.** A Gemma model the user downloads in-app explains findings, categorises files and drafts the cleanup plan. Nothing about the user's files leaves the phone — the only network traffic in the app is the model download itself.
-2. **Shizuku power mode.** Optional ADB-level access performs real cache clearing, reads `Android/data`, and uninstalls without a dialog per app — work that is impossible for a normal Android app — while the app stays fully useful without it.
+1. **On-device AI.** An optional downloaded or imported model explains findings. Deterministic rules generate plans; AI cannot mutate files. File information stays on the phone; only user-initiated model downloads use the network.
+2. **Shizuku power mode.** Optional ADB-level access measures restricted folders and uninstalls individually confirmed apps. Cache-only clearing depends on Android support, with a learned Storage Settings fallback after unsupported commands or timeouts.
 3. **Approval as the core mechanic, not a confirmation dialog.** The scan produces a reviewable plan; nothing is acted on until the user approves specific items.
 
 Free, open source, no ads, no trackers, no upsell.
@@ -54,11 +54,13 @@ Cannot do without Shizuku (hard Android limits, to be stated plainly in the UI, 
 - Read or delete inside another app's `Android/data` or `Android/obb` (Android 11+).
 - Uninstall silently.
 
-Platform requirements: `MANAGE_EXTERNAL_STORAGE` (All files access), `PACKAGE_USAGE_STATS` (usage access), `REQUEST_DELETE_PACKAGES`, `POST_NOTIFICATIONS`. All are requested in context, with the reason shown first, never on cold start.
+Platform requirements: `MANAGE_EXTERNAL_STORAGE` (All files access), `PACKAGE_USAGE_STATS` (usage access), `REQUEST_DELETE_PACKAGES`, and `INTERNET` for model downloads. Unused media, notification, and foreground-service permissions have been removed. Access is explained in context; the initial screen works without grants.
 
 Product fact that follows from the platform: **deletions on Android have no recycle bin.** Tidyra therefore keeps its own trash — approved deletions move to an app-owned trash folder and are purged on a schedule the user controls — so "undo" is real rather than a promise.
 
-Undecided: minimum supported Android version (to be set by what the Gemma runtime and Shizuku realistically need); whether the Gemma runtime ships as MediaPipe (prebuilt `.so`, may need an F-Droid exception) or a llama.cpp backend compiled from source. The AI layer is built behind an engine interface so this can change without touching the UI.
+Current distribution: signed direct APK, Android 11+. MediaPipe ships prebuilt `.so` files; F-Droid acceptance and a possible from-source backend remain distribution work. The engine interface permits a future replacement.
+
+Recovery contract: organiser undo is journaled across process death; file moves and restores never overwrite existing names. Trash records copy intents before writing payloads. Interrupted or unindexed payloads are reconciled, with uncertain recovered content excluded from automatic expiry and surfaced for manual review. Shared app media is subtracted from UID-grouped app data before category totals are added.
 
 ## Brand Commitments
 

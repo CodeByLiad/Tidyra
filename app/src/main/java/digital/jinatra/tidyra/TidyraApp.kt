@@ -2,6 +2,7 @@ package digital.jinatra.tidyra
 
 import android.app.Application
 import digital.jinatra.tidyra.core.trash.TrashStore
+import digital.jinatra.tidyra.core.trash.TrashPreferences
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -16,7 +17,7 @@ class TidyraApp : Application() {
         // Trashed files still occupy storage, so the bin is swept on launch rather than
         // growing quietly until the user wonders where their space went.
         scope.launch {
-            runCatching { TrashStore(this@TidyraApp).purgeExpired(DEFAULT_TRASH_RETENTION_DAYS) }
+            runCatching { TrashStore(this@TidyraApp).purgeExpired(TrashPreferences(this@TidyraApp).retentionDays) }
         }
     }
 

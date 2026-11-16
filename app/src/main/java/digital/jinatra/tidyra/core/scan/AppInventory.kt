@@ -2,6 +2,7 @@ package digital.jinatra.tidyra.core.scan
 
 import android.app.usage.StorageStatsManager
 import android.app.usage.UsageStatsManager
+import android.app.AppOpsManager
 import android.content.Context
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
@@ -34,6 +35,9 @@ class AppInventory(private val context: Context) {
         val dataBytes: Bytes,
         val cacheBytes: Bytes,
         val lastUsedMillis: Long,
+        val uid: Int = -1,
+        val groupAppBytes: Bytes = appBytes,
+        val groupDataBytes: Bytes = dataBytes + cacheBytes,
     ) {
         val totalBytes: Bytes get() = appBytes + dataBytes + cacheBytes
         val daysSinceUse: Long
@@ -42,12 +46,8 @@ class AppInventory(private val context: Context) {
     }
 
     fun hasUsageAccess(): Boolean {
-        val usage = context.getSystemService(UsageStatsManager::class.java) ?: return false
-        val now = System.currentTimeMillis()
-        val stats = runCatching {
-            usage.queryUsageStats(UsageStatsManager.INTERVAL_DAILY, now - TimeUnit.DAYS.toMillis(7), now)
-        }.getOrNull()
-        return !stats.isNullOrEmpty()
+        val ops = context.getSystemService(AppOpsManager::class.java) ?: return false
+        return ops.unsafeCheckOpNoThrow(AppOpsManager.OPSTR_GET_USAGE_STATS, Process.myUid(), context.packageName) == AppOpsManager.MODE_ALLOWED
     }
 
     suspend fun load(): List<AppEntry> = withContext(Dispatchers.IO) {
@@ -58,6 +58,7 @@ class AppInventory(private val context: Context) {
             ?: return@withContext emptyList()
         val user: UserHandle = Process.myUserHandle()
         val lastUsed = lastUsedByPackage()
+        val groupStats = mutableMapOf<Int, android.app.usage.StorageStats?>()
 
         pm.getInstalledApplications(PackageManager.GET_META_DATA).mapNotNull { info ->
             val stats = runCatching {
@@ -67,15 +68,22 @@ class AppInventory(private val context: Context) {
                     user,
                 )
             }.getOrNull() ?: return@mapNotNull null
+            val group = groupStats.getOrPut(info.uid) {
+                runCatching { storageStats.queryStatsForUid(StorageManager.UUID_DEFAULT, info.uid) }.getOrNull()
+            } ?: stats
 
             AppEntry(
                 packageName = info.packageName,
                 label = pm.getApplicationLabel(info).toString(),
                 isSystem = (info.flags and ApplicationInfo.FLAG_SYSTEM) != 0,
                 appBytes = Bytes(stats.appBytes),
-                dataBytes = Bytes(stats.dataBytes),
+                // Android's dataBytes already includes cache. Keep these fields disjoint.
+                dataBytes = Bytes((stats.dataBytes - stats.cacheBytes).coerceAtLeast(0)),
                 cacheBytes = Bytes(stats.cacheBytes),
                 lastUsedMillis = lastUsed[info.packageName] ?: 0L,
+                uid = info.uid,
+                groupAppBytes = Bytes(group.appBytes),
+                groupDataBytes = Bytes(group.dataBytes),
             )
         }.sortedByDescending { it.totalBytes.value }
     }

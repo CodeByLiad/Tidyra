@@ -35,6 +35,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -89,6 +94,15 @@ fun Root(
     val storageScroll = rememberLazyListState()
     var openCategory by remember { mutableStateOf<StorageCategory?>(null) }
     val colors = MaterialTheme.colorScheme
+    val snackbar = remember { SnackbarHostState() }
+    LaunchedEffect(station.message) {
+        station.message?.let {
+            val settingsPackage = station.settingsPackage
+            val result = snackbar.showSnackbar(it, actionLabel = if (settingsPackage == null) "OK" else "SETTINGS", duration = SnackbarDuration.Long)
+            if (result == SnackbarResult.ActionPerformed && settingsPackage != null) callbacks.onOpenAppSettings(settingsPackage)
+            callbacks.onDismissMessage()
+        }
+    }
 
     val finding = station.findings.firstOrNull { it.id == openFinding }
     val detailOpen = finding != null || openCategory != null
@@ -105,6 +119,7 @@ fun Root(
         color = colors.background,
         contentColor = colors.onSurface,
     ) {
+    Box(Modifier.fillMaxSize()) {
     Column(Modifier.fillMaxSize()) {
         if (detailOpen) {
             // A detail screen replaces the masthead, so nothing above it is holding the
@@ -121,7 +136,8 @@ fun Root(
                     selectedItems = station.selectedItems,
                     onToggleItem = callbacks.onToggleItem,
                     onSelectAll = { all -> callbacks.onToggleFinding(finding.id, all) },
-                    onAppAction = callbacks.onUninstall,
+                    onAppAction = if (finding.kind == digital.jinatra.tidyra.core.model.FindingKind.APP_CACHE)
+                        callbacks.onClearCache else callbacks.onUninstall,
                     // Read live: the model may have been loaded after this activity resumed,
                     // and a stale flag would hide the button that uses it.
                     aiReady = digital.jinatra.tidyra.ai.EngineHolder.isReady,
@@ -139,10 +155,13 @@ fun Root(
                     // Apps and app data are not files on disk Tidyra can walk — Android
                     // reports them per package. So the detail for those is the app list.
                     items = when (category) {
-                        StorageCategory.APPS -> station.apps.asItems { it.appBytes }
-                        StorageCategory.APP_DATA -> station.apps.asItems { app ->
-                            digital.jinatra.tidyra.core.model.Bytes(app.dataBytes.value + app.cacheBytes.value)
-                        }
+                        StorageCategory.APPS, StorageCategory.APP_DATA ->
+                            digital.jinatra.tidyra.core.scan.StorageAccounting.groups(station.apps, station.snapshot)
+                                .map { group -> digital.jinatra.tidyra.core.model.Finding.Item(
+                                    path = group.packageName,
+                                    size = if (category == StorageCategory.APPS) group.appBytes else group.dataBytes,
+                                    lastModifiedMillis = 0, packageName = group.packageName, label = group.label) }
+                                .sortedByDescending { it.size.value }.take(100)
                         else -> station.topFilesByCategory[category].orEmpty()
                     },
                     onBack = { openCategory = null },
@@ -178,7 +197,11 @@ fun Root(
                     onGrantAllFiles = callbacks.onGrantAllFiles,
                     onGrantUsage = callbacks.onGrantUsage,
                     onRequestShizuku = callbacks.onRequestShizuku,
-                    onOpenFinding = { openFinding = it },
+                    onOpenFinding = { id ->
+                        if (station.findings.firstOrNull { it.id == id }?.kind == digital.jinatra.tidyra.core.model.FindingKind.LOOSE_FILES) {
+                            section = Section.ORGANISE
+                        } else openFinding = id
+                    },
                     onOpenCategory = { openCategory = it },
                     listState = storageScroll,
                 )
@@ -189,7 +212,9 @@ fun Root(
                     shizuku = station.shizuku,
                     onUninstall = callbacks.onUninstall,
                     onOpenAppSettings = callbacks.onOpenAppSettings,
-                    onClearAllCaches = callbacks.onClearAllCaches,
+                    onClearCache = callbacks.onClearCache,
+                    canClearCache = station.canClearCache,
+                    working = station.working || station.scanning,
                     onGrantUsage = callbacks.onGrantUsage,
                 )
 
@@ -203,12 +228,13 @@ fun Root(
                 Section.TRASH -> TrashScreen(
                     entries = station.trashEntries,
                     totalBytes = station.trashBytes,
-                    working = station.working,
+                    working = station.working || station.scanning,
+                    retentionDays = station.retentionDays,
+                    onRetentionDays = callbacks.onRetentionDays,
                     onRestore = callbacks.onRestore,
                     onRestoreMany = callbacks.onRestoreMany,
                     onRestoreAll = callbacks.onRestoreAll,
                     onPurgeMany = callbacks.onPurgeMany,
-                    onEmpty = callbacks.onEmptyTrash,
                 )
 
                 Section.AI -> ModelScreen(
@@ -225,6 +251,8 @@ fun Root(
         }
 
         ApprovalFooter(station, callbacks)
+    }
+    SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).navigationBarsPadding())
     }
     }
 }
@@ -259,7 +287,7 @@ private fun ApprovalFooter(station: StationState, callbacks: RootCallbacks) {
         ApprovalBar(
             frees = station.plan.frees,
             items = station.plan.itemCount,
-            working = station.working,
+            working = station.working || station.scanning,
             onApprove = callbacks.onApprove,
         )
     }
@@ -399,7 +427,9 @@ data class RootCallbacks(
     val onGrantUsage: () -> Unit,
     val onUninstall: (String) -> Unit,
     val onOpenAppSettings: (String) -> Unit,
-    val onClearAllCaches: () -> Unit,
+    val onClearCache: (String) -> Unit,
+    val onRetentionDays: (Int) -> Unit,
+    val onDismissMessage: () -> Unit,
     val onSelectFolder: (java.io.File) -> Unit,
     val onApplyOrganise: () -> Unit,
     val onUndoOrganise: () -> Unit,

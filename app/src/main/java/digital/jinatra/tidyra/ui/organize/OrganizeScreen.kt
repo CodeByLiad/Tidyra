@@ -188,21 +188,13 @@ fun OrganizeScreen(
                                     color = colors.onSurfaceVariant,
                                 )
                             }
-                            moves.take(6).forEach { move ->
+                            moves.forEach { move ->
                                 Text(
                                     text = move.from.name,
                                     style = MaterialTheme.typography.bodyMedium,
                                     color = colors.onSurfaceVariant,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis,
-                                    modifier = Modifier.padding(start = Module.x2, top = 2.dp),
-                                )
-                            }
-                            if (moves.size > 6) {
-                                Text(
-                                    text = "and ${moves.size - 6} more",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = colors.onSurfaceVariant,
                                     modifier = Modifier.padding(start = Module.x2, top = 2.dp),
                                 )
                             }
@@ -255,16 +247,20 @@ fun OrganizeScreen(
             }
         }
 
+        state.message?.let { message -> item { Footnote(message) } }
         state.lastResult?.let { result ->
             item {
                 Column(Modifier.padding(horizontal = Module.x3, vertical = Module.x2)) {
                     Text(
-                        text = "${Format.count(result.moved.size, "file")} filed" +
+                        text = "${Format.count(result.moved.size, "file")} can be put back" +
                             if (result.failed.isEmpty()) "" else ", ${result.failed.size} could not be moved",
                         style = MaterialTheme.typography.titleLarge,
                         color = colors.onSurface,
                     )
-                    TextButton(onClick = onUndo, contentPadding = PaddingValues(0.dp)) {
+                    Text("Undo is saved on this device, including after closing the app. The most recent batch is shown.",
+                        style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant,
+                        modifier = Modifier.padding(top = Module.u))
+                    TextButton(onClick = onUndo, enabled = !state.working, contentPadding = PaddingValues(0.dp)) {
                         Text("PUT THEM BACK", style = type.stencil, color = MaterialTheme.colorScheme.primary)
                     }
                 }

@@ -44,6 +44,7 @@ class SharedStorageScanner {
         val size: Long,
         val lastModified: Long,
         val category: StorageCategory,
+        val sharedMediaOwner: String? = null,
     )
 
     fun scan(root: File = Environment.getExternalStorageDirectory()): Flow<Progress> = flow {
@@ -59,6 +60,9 @@ class SharedStorageScanner {
         while (stack.isNotEmpty()) {
             coroutineContext.ensureActive()
             val dir = stack.removeLast()
+            // These are measured separately through Shizuku, never offered as loose files.
+            if (dir == File(root, "Android/data") || dir == File(root, "Android/obb")) continue
+            if (java.nio.file.Files.isSymbolicLink(dir.toPath())) continue
             val children = dir.listFiles()
 
             if (children == null) {
@@ -72,6 +76,7 @@ class SharedStorageScanner {
             }
 
             for (child in children) {
+                if (java.nio.file.Files.isSymbolicLink(child.toPath())) continue
                 if (child.isDirectory) {
                     stack.addLast(child)
                 } else {
@@ -80,6 +85,7 @@ class SharedStorageScanner {
                         size = child.length(),
                         lastModified = child.lastModified(),
                         category = categorise(child),
+                        sharedMediaOwner = sharedMediaOwner(child, root),
                     )
                     seen++
                     if (seen % 500 == 0) emit(Progress.Walking(seen, dir.absolutePath))
@@ -95,6 +101,7 @@ class SharedStorageScanner {
             looseFiles(files, root)?.let(::add)
         }
 
+        emit(Progress.Walking(seen, root.absolutePath))
         emit(Progress.Done(ScanResult(snapshot, files, emptyDirs, findings)))
     }.flowOn(Dispatchers.IO)
 
@@ -113,6 +120,8 @@ class SharedStorageScanner {
             freeBytes = Bytes(free),
             byCategory = byCategory,
             takenAtMillis = System.currentTimeMillis(),
+            sharedMediaByPackage = files.filter { it.sharedMediaOwner != null }.groupBy { it.sharedMediaOwner!! }
+                .mapValues { (_, entries) -> Bytes(entries.sumOf { it.size }) },
         )
     }
 
@@ -123,6 +132,12 @@ class SharedStorageScanner {
         "pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "txt", "md", "csv", "epub" -> StorageCategory.DOCUMENTS
         "apk", "apks", "xapk", "apkm", "obb" -> StorageCategory.APPS
         else -> StorageCategory.OTHER
+    }
+
+    private fun sharedMediaOwner(file: File, root: File): String? {
+        val relative = file.absolutePath.removePrefix(File(root, "Android/media").absolutePath + File.separator)
+        if (relative == file.absolutePath) return null
+        return relative.substringBefore(File.separator).takeIf { it.contains('.') }
     }
 
     private fun staleInstallers(files: List<FileEntry>): Finding? {
@@ -183,7 +198,7 @@ class SharedStorageScanner {
     private fun looseFiles(files: List<FileEntry>, root: File): Finding? {
         val targets = LOOSE_FILE_DIRS.map { File(root, it).absolutePath }.toSet()
         val loose = files.filter {
-            it.file.parent in targets &&
+            it.file.parent?.let { parent -> parent in targets } == true &&
                 !it.file.name.startsWith(".") &&
                 !Protected.isProtected(it.file.absolutePath)
         }

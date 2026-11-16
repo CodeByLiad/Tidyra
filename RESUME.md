@@ -1,57 +1,58 @@
 # Resume Tidyra here
 
-**Checkpoint: 2026-11-13, pushed.** Builds clean, 18 unit tests pass, verified end to end on an emulator. Finish review applied, verdict applied, `DESIGN.md` written. This is the finished state.
+Checkpoint: 2026-11-16. Release 0.1.0 is prepared for GitHub publication with a signed direct APK, minimum Android 11, compile/target SDK 36. Read this checkpoint before older build notes.
 
-## Read first
-`PRD.md` (what it should become) · `PRODUCT.md` (product truth, platform limits) · `DESIGN.md` (visual system, written at finish) · `.impeccable/build-notes.md` (toolchain, version pins) · `.impeccable/surfaces/digital-jinatra-tidyra-ui-mainactivity-kt-1037687c.md` (direction contract — its OWN-WORLD block is superseded by the pinned editorial world; its four raises still bind).
+## Product and design
 
-## Visual direction
-Editorial-minimal, pinned by Liad from a reference. Nude paper `#F3EDE3` / ink `#15110E`, dark ground `#131110`, one crimson — `#C41733` in light (5.18:1 on paper), `#FF5A72` in dark, always read from `MaterialTheme.colorScheme.primary` so the theme supplies it. Playfair Display (bundled, OFL) for every headline and figure, `StationType.amount` included — a figure must never arrive in Roboto. Hairline rules, no cards, no elevation-as-decoration.
+Read `PRD.md`, `PRODUCT.md`, `DESIGN.md`, and `.impeccable/build-notes.md`. Preserve Liad's pinned editorial direction: cream #F3EDE3, ink #15110E, dark #131110, crimson #C41733 (light) / #FF5A72 (dark), Playfair Display headlines and figures, 8dp spacing, hairline rules, no decorative cards. Use MaterialTheme colors, never a hardcoded accent. One whole-device capacity rule carries actual shares; ranked rows carry exact values. System/unmeasured storage has its own span. Proposal motion respects Compose's system animation scale. Design sidecar metadata is older than the pinned direction; refresh it separately before a future redesign.
 
-**The four disciplines:** one shared size scale (drawn against the device, never re-normalised) · one 8dp module · exact sizes (`756 MB`, `<1%`, never `0%`) · shared items counted once.
+## Safety and recovery
 
-## How storage is drawn
-One stacked `CapacityRule` for the whole page, not a track per row. Seven per-row tracks against a whole-device denominator meant five of seven categories drew as empty track — an honest scale rendered dishonestly. The rule carries true shares and the free span; the rows carry rank, label, a dotted leader and the figure. The hairline between segments is cut out of the segment before it, never added, so the rule still measures the device exactly.
+- Every file action requires per-item approval. Loose files route to Organise, never deletion; app actions cannot enter file trash. Protected backups, databases, and key material are excluded at scan and execution boundaries.
+- Approved copies are written exclusively, synced, and committed to an atomic trash ledger before originals are removed. Store instances share a per-root lock. Damaged ledgers block mutation instead of being silently emptied. Insufficient temporary space preserves originals.
+- Size/mtime and duplicate counterpart hashes are rechecked at approval. Restore and organiser undo use collision-safe numbered names; existing files are never replaced. Each saved trash version has its own ID. Failed purges remain visible.
+- Copy intents precede payload writes. Restart reconciliation removes only redundant private copies whose originals still verify; missing/changed originals preserve even incomplete payloads for review. Legacy unindexed payloads become visible recovery entries. Unknown originals restore under Download/Tidyra Recovered. Recovery warnings exclude entries from automatic expiry.
+- Retention is persisted: 7/14/30 days or manual-only; it runs on launch. The Trash screen explains changes before saving, shows selection totals, and separately confirms permanent deletion. Files in app-owned trash still occupy space. Uninstalling Tidyra removes that private trash, so restore it first.
+- Organiser journals each move before same-volume atomic rename. The latest batch remains undoable after process death, with earlier batches retained. Undo verifies content and does not delete bucket folders. Interrupted metadata updates reconcile without deleting user files.
 
-## Verified on the emulator (`cueplay_pixel`, API 35, x86_64)
-Seeded with ~260 MB of realistic mess, then exercised:
-- scan, findings, per-item approval, trash, restore, organise plan + apply
-- **duplicates keep the original**: the camera copy survives even though it is the newest file; the old "keep the oldest" rule would have deleted the camera roll and kept the chat attachment
-- **protected files are excluded**: the `msgstore.db.crypt14` duplicate is never offered
-- **on-device AI**: SmolLM downloads (exactly 166,754,726 bytes), loads, and answers; Gemma 3 1B is refused on 2.5 GB RAM with a stated reason
-- **organising refuses to relocate protected files**: `cueplay-backup.json`, `msgstore.db.crypt14` and `rgb-wallet-backup.bin` stay in Download, each with its reason on screen. Moving a backup breaks nothing structurally, but it can break the restore that goes looking for it by path.
+## Storage, AI, and permissions
 
-## Not verified
-- **Shizuku**: installed on the emulator but its ADB-start file never appears, so cache clearing (`pm trim-caches`) and silent uninstall are unexercised. Guards are in place and `isProtectedPackage` is unit-tested.
-- Uninstall through the system dialog, on hardware.
-- Answer quality from Gemma 3 1B (gated: needs a Hugging Face token).
+App statistics are grouped by UID. Scanned Android/media ownership is subtracted from app data before file-type categories are added, preventing shared-media overlap; cache is already part of app data. Standalone installers remain in Apps. Restricted-folder allocated sizes are informational and are not added again. Inaccessible roots and partial scans remain explicit; an empty result does not claim the entire phone is clean.
 
-## Hard-won gotchas
-- Every screen needs a `Surface` above it or `LocalContentColor` falls back to black.
-- Detail screens replace the masthead, so they carry their own `statusBarsPadding`; sections under the masthead must not.
-- Never hardcode the accent: read `MaterialTheme.colorScheme.primary`, or dark mode silently runs the light-mode value.
-- Tab labels must not change weight with state — bold is wider and shifts the row.
-- Font licences cannot live in `res/font/` (AAPT rejects non-font files) — `licenses/`.
-- Apps/App data are not walkable files; apps cannot be trashed, only uninstalled per row.
-- `keepRank` is separator-agnostic so it is testable off-device.
-- Gemma on Hugging Face is gated (401). SmolLM 135M is open and in the catalogue for that reason.
-- A minimum-visible *fraction* is not a minimum visible *length*: 0.4% of a 115dp track is half a pixel. Floors for drawn marks belong in px, or the geometry eats them.
-- The app owns its light/dark switch, so `cmd uimode night yes` does not change the theme — press the control.
-- `uiautomator dump` only sees what a lazy list has composed; scroll before concluding a row is absent.
+AI only explains findings; deterministic rules generate plans. Model downloads register cancellation before blocking work, validate resume ranges and final length, sync partials, and never promote a known incomplete download. Imported task files use unique names and appear in the catalogue. The unsupported photo-analysis model listing was removed. Native load/generate/unload is serialized. Release shrinking retains protobuf-lite fields used reflectively by MediaPipe; otherwise the real model fails at load despite successful compilation. SmolLM is open/tokenless; Gemma needs accepted licence terms and a Hugging Face token. Model output quality is not guaranteed.
 
-## Build / test / install
-```
-./gradlew assembleDebug
-./gradlew testDebugUnitTest
-adb install -r app/build/outputs/apk/debug/app-debug.apk
-```
-Pins: AGP 8.13.2, Kotlin 2.4.21, Compose 1.11.4, material3 1.4.0, okhttp 4.12.0, compileSdk 36.
-Emulator permissions without tapping: `adb shell appops set <pkg> MANAGE_EXTERNAL_STORAGE allow` and `... GET_USAGE_STATS allow`.
-Scratchpad helpers: `seed.sh` (push to `/data/local/tmp`, run with `sh`), `capture.sh` (scroll-aware taps, verifies the foreground activity and an on-screen string after every screencap).
+Unused media-read, notification, network-state and foreground-service permissions were removed. Usage access is checked through AppOps. App data backups are disabled. No file information is sent to a server; network access is for user-started model downloads.
 
-## Published
-`https://github.com/CodeByLiad/Tidyra` — public, GPL-3.0, default branch `main`, `origin` wired up. 74 files; no keystore, `local.properties` or token strings in the tree (checked). Topics and description set for the F-Droid and Shizuku listings.
+## Physical-device verification
 
-## Next
-1. Verify Shizuku on hardware.
-2. The signature interaction from the contract — the proposed span retracting on confirmation — is a flat alpha overlay with no authored motion. The stacked rule now carries the proposal in the accent; animating that retraction is the remaining half.
+Pixel 10 Pro, Android 17/API 37. The pre-existing `digital.jinatra.tidyra.debug` has a different certificate and saved trash: it was preserved. Never uninstall it to bypass a signature mismatch. Isolated QA uses `digital.jinatra.tidyra.usbtest`; production is `digital.jinatra.tidyra`.
+
+Shizuku verification uses only disposable `digital.jinatra.usbfixture`. Checks cover protected-package refusal, remote output/exit status after actual completion, restricted-folder sizes, cache-operation safety, and fixture uninstall. The default suite reports six tests including one skipped system-dialog case (five executed). The separate normal Android uninstall-dialog flow was previously tested with both Cancel and Uninstall. Sources and repeat instructions: `tools/usb-fixture/`.
+
+Two hardware bugs were fixed: use ShizukuRemoteProcess.waitForTimeout rather than inherited Process.waitFor(timeout); query known user-package restricted paths as well as parent enumeration because Android can hide a newly installed child from enumeration.
+
+Cache-only clearing does not complete on this Pixel's system build, even via direct ADB. This is a failed operation with safe fallback, not successful cache clearing. The app remembers unsupported/timeout capability against Build.FINGERPRINT and subsequently opens Storage Settings without repeating the blocking command. It never substitutes app-data clearing. Fixture internal/external keep markers survived; the repeat fallback completed within five seconds. Evidence: `build/release-shizuku-phone.txt`, including cacheClearOutcome=FAILED_SAFELY. Direct cmd package avoids leaving a pm wrapper child after timeout.
+
+The optimized restart tests passed in two separate instrumentation sessions with force-stop between: persistent organiser undo on external storage, a new original preserved during undo, interrupted partial cleanup, legacy orphan visibility/restore, and recovery exemption from expiry. Evidence: `build/release-prepare-restart.txt`, `build/release-recover-restart.txt`.
+
+The real SmolLM task model loaded, returned nonblank text, unloaded, and rejected a subsequent unloaded request on the optimized Pixel build. This exposed and verified the fix for the protobuf reflection failure. Evidence: `build/release-ai-phone.txt` (one passed test; 21 seconds). Its temporary model file was removed after success.
+
+The signed production APK installed as `digital.jinatra.tidyra`, cold-launched successfully, and completed a read-only scan on the Pixel. Storage, Apps, Organise, Trash, and AI navigation, capacity before grants, permission refresh after resume, and light/dark switching were checked. No personal file action was performed. The old `.debug` package and its saved trash remain untouched.
+
+After checking the isolated QA app's Trash screen was empty, its target and runner were uninstalled. The disposable fixture is absent. The production app remains installed; temporary model/UI-dump files were removed. This pass did not change the phone's stay-awake setting.
+
+## Build and signing
+
+53 JVM tests pass, zero failures/errors. Full lintDebug passes without errors; dependency/style warnings remain. R8 is pinned to 9.1.57 for Kotlin 2.4 metadata compatibility while retaining AGP 8.13.2. Other pins: Kotlin 2.4.21, Compose 1.11.4, Material3 1.4.0, OkHttp 4.12.0. JDK 17+; tested with Microsoft JDK 21.
+
+`powershell -File tools/verify-release.ps1` runs tests, lint, optimized release build, and APK signature verification. Local production key: `.signing/tidyra-release.p12`, credentials `.signing/keystore.properties`, both ignored and excluded from source packages. RSA 4096, certificate SHA-256 `570253ffec64c5f15ee193b42e9d64b86c2ec37945f23c0c5b50200524da5311`. Securely back up this directory outside the repo before publishing: future updates need the same key. A fresh clone without credentials intentionally builds an unsigned release. TIDYRA_SIGNING_PROPERTIES can point to an alternate local properties file. Do not expose tokens/passwords or include keys in an archive.
+
+The optimized isolated build uses `'-Ptidyra.usbReleaseTests=true' assembleUsbRelease assembleUsbReleaseAndroidTest`; release public entry points are retained across the separate test APK. All mutations require fixture opt-ins. Device UI inspection must verify the foreground is Tidyra or the expected system permission dialog before reading it. Do not inspect private apps or bypass the lock screen.
+
+## Distribution limits and future work
+
+Release destination: [GitHub v0.1.0](https://github.com/CodeByLiad/Tidyra/releases/tag/v0.1.0), with signed APK, source snapshot, and checksums. F-Droid acceptance is pending: MediaPipe bundles prebuilt native libraries, and a from-source backend or approved distribution arrangement remains separate work. Gemma answer quality has not been tested with the owner's gated model. Broad device compatibility, Play approval, and absolute data-loss guarantees are not claimed. The app cannot fix Android's hanging package-manager cache command; Storage Settings is the supported fallback.
+
+Mobbin references reviewed via the connected tool: [Speechify permanent deletion](https://mobbin.com/flows/1cbfae86-f49b-4a78-ba56-d4110851ede2) and [Dropbox recovery](https://mobbin.com/flows/3041b0da-bac7-42c4-8870-3449e661f244). Applied visible selection, clear locations, separate restore/delete actions, and native irreversible-action confirmation while preserving the pinned design.
+
+Technical references: [Shizuku process wait](https://github.com/RikkaApps/Shizuku-API/blob/master/api/src/main/java/rikka/shizuku/ShizukuRemoteProcess.java), [Android storage-stat semantics](https://developer.android.com/reference/android/app/usage/StorageStats#getDataBytes()), [Kotlin/R8 compatibility](https://developer.android.com/build/kotlin-support), [MediaPipe release shrinking issue](https://github.com/google-ai-edge/mediapipe/issues/6138).

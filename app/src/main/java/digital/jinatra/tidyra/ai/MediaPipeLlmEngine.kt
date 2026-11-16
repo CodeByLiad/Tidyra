@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.withContext
 import java.io.File
+import kotlinx.coroutines.flow.flow
 
 /**
  * Gemma on the phone, through MediaPipe's LLM Inference API.
@@ -19,12 +20,15 @@ import java.io.File
  */
 class MediaPipeLlmEngine(private val context: Context) : LlmEngine {
 
+    private val lock = Any()
+    @Volatile
     private var inference: LlmInference? = null
     private var template: PromptTemplate = PromptTemplate.PLAIN
 
     override val isLoaded: Boolean get() = inference != null
 
     override suspend fun load(modelPath: String, template: PromptTemplate): Result<Unit> = withContext(Dispatchers.IO) {
+      synchronized(lock) {
         runCatching {
             val file = File(modelPath)
             require(file.exists() && file.length() > 0) { "Model file is missing" }
@@ -39,36 +43,29 @@ class MediaPipeLlmEngine(private val context: Context) : LlmEngine {
                     .build(),
             )
         }
+      }
     }
 
     override fun unload() {
+      synchronized(lock) {
         runCatching { inference?.close() }
         inference = null
+      }
     }
 
-    override fun generate(prompt: String): Flow<String> = callbackFlow {
-        val engine = inference
-        if (engine == null) {
-            close(IllegalStateException("No model loaded"))
-            return@callbackFlow
-        }
-        runCatching {
-            engine.generateResponseAsync(withRules(prompt)) { partial, done ->
-                trySend(partial)
-                if (done) close()
-            }
-        }.onFailure { close(it) }
-
-        awaitClose { }
+    override fun generate(prompt: String): Flow<String> = flow {
+        emit(complete(prompt).getOrThrow())
     }.flowOn(Dispatchers.IO)
 
     override suspend fun complete(prompt: String): Result<String> = withContext(Dispatchers.IO) {
+      synchronized(lock) {
         runCatching {
             val engine = inference ?: error("No model loaded")
             // Trim at the model's own stop marker: left to itself it runs past the end of
             // its turn and starts inventing the next one.
             template.trim(engine.generateResponse(withRules(prompt)))
         }
+      }
     }
 
     /** Frames the turn the way this model expects. Bare text gets continued, not answered. */

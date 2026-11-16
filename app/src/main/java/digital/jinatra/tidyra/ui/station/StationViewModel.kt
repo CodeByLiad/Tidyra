@@ -16,8 +16,12 @@ import digital.jinatra.tidyra.core.model.StorageSnapshot
 import digital.jinatra.tidyra.core.scan.AppInventory
 import digital.jinatra.tidyra.core.scan.DuplicateFinder
 import digital.jinatra.tidyra.core.scan.SharedStorageScanner
+import digital.jinatra.tidyra.core.scan.StorageAccounting
 import digital.jinatra.tidyra.core.shizuku.ShizukuBridge
 import digital.jinatra.tidyra.core.trash.TrashStore
+import digital.jinatra.tidyra.core.trash.TrashPreferences
+import digital.jinatra.tidyra.ui.format.Format
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -47,6 +51,12 @@ data class StationState(
     val working: Boolean = false,
     val explaining: String? = null,
     val aiReady: Boolean = false,
+    val retentionDays: Int = 14,
+    val message: String? = null,
+    val settingsPackage: String? = null,
+    val canClearCache: Boolean = true,
+    val restrictedFolders: List<digital.jinatra.tidyra.core.shizuku.RestrictedFolder> = emptyList(),
+    val restrictedNote: String? = null,
 ) {
     val plan: ActionPlan
         get() {
@@ -83,9 +93,10 @@ class StationViewModel(app: Application) : AndroidViewModel(app) {
     private val duplicates = DuplicateFinder()
     private val inventory = AppInventory(app)
     private val trash = TrashStore(app)
-    val shizuku = ShizukuBridge()
+    private val trashPreferences = TrashPreferences(app)
+    val shizuku = ShizukuBridge(app)
 
-    private val _state = MutableStateFlow(StationState())
+    private val _state = MutableStateFlow(StationState(retentionDays = trashPreferences.retentionDays))
     val state: StateFlow<StationState> = _state.asStateFlow()
 
     private var scanJob: Job? = null
@@ -125,7 +136,7 @@ class StationViewModel(app: Application) : AndroidViewModel(app) {
                 .getOrElse { error -> "The model could not answer: " + (error.message ?: "unknown error") }
                 .ifBlank {
                     // An empty reply is a real outcome worth naming, not a blank panel.
-                    "The model returned nothing usable. Small models often do; Gemma 3 1B answers this properly."
+                    "The model returned nothing usable. Try another compatible model; the finding and your selection have not changed."
                 }
             _state.update { current ->
                 current.copy(
@@ -158,45 +169,60 @@ class StationViewModel(app: Application) : AndroidViewModel(app) {
 
     fun refreshTrash() {
         viewModelScope.launch {
-            _state.update { it.copy(trashBytes = trash.size(), trashEntries = trash.contents()) }
+            runCatching { trash.contents() }.onSuccess { entries ->
+                _state.update { it.copy(trashBytes = Bytes(entries.sumOf { entry -> entry.size.value }), trashEntries = entries) }
+            }.onFailure { error ->
+                _state.update { it.copy(message = "Trash could not be read. Saved files were left alone. ${error.message.orEmpty()}") }
+            }
         }
     }
 
-    /** Puts one trashed file back where it came from. This is what makes deleting safe. */
-    fun restore(originalPath: String) {
-        viewModelScope.launch {
-            _state.update { it.copy(working = true) }
-            trash.restore(originalPath)
-            _state.update { it.copy(working = false) }
-            refreshTrash()
-        }
+    fun dismissMessage() = _state.update { it.copy(message = null, settingsPackage = null) }
+
+    fun setRetentionDays(days: Int) = perform {
+        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { trashPreferences.retentionDays = days }
+        _state.update { it.copy(retentionDays = days) }
+        "Saved. This applies on the next launch; existing files are kept until then."
     }
 
-    fun restoreMany(paths: Collection<String>) {
-        viewModelScope.launch {
-            _state.update { it.copy(working = true) }
-            paths.forEach { trash.restore(it) }
-            _state.update { it.copy(working = false) }
-            refreshTrash()
-        }
+    fun restore(id: String) = restoreMany(listOf(id))
+
+    fun restoreMany(ids: Collection<String>) = perform {
+        val restored = ids.count { trash.restore(it) }
+        "$restored of ${ids.size} put back. Existing files were kept; restored copies use a new name when needed." +
+            if (restored < ids.size) " Unrestored items remain in trash; check folder access and free space, then retry." else ""
     }
 
-    fun restoreAllFromTrash() {
-        viewModelScope.launch {
-            _state.update { it.copy(working = true) }
-            trash.restoreAll()
-            _state.update { it.copy(working = false) }
-            refreshTrash()
-        }
+    fun restoreAllFromTrash() = perform {
+        val total = trash.contents().size
+        val restored = trash.restoreAll()
+        "$restored of $total put back. Existing files were kept." +
+            if (restored < total) " Unrestored items remain in trash; check folder access and free space, then retry." else ""
     }
 
-    /** Permanently deletes the chosen trashed items. The UI confirms before calling this. */
-    fun purgeMany(paths: Collection<String>) {
+    fun purgeMany(ids: Collection<String>) = perform { purgeMessage(trash.purge(ids)) }
+    fun emptyTrash() = perform { purgeMessage(trash.purgeAll()) }
+
+    private fun purgeMessage(result: TrashStore.BatchResult) =
+        "${result.count} removed from trash; ${Format.size(result.bytes)} freed." +
+            if (result.failures.isEmpty()) "" else " ${result.failures.size} failed and remain listed. ${result.failures.first()}"
+
+    /** Lock the controls before launching so rapid taps cannot queue duplicate mutations. */
+    private fun perform(action: suspend () -> String) {
+        if (_state.value.working || _state.value.scanning) return
+        _state.update { it.copy(working = true) }
         viewModelScope.launch {
-            _state.update { it.copy(working = true) }
-            trash.purge(paths)
-            _state.update { it.copy(working = false) }
-            refreshTrash()
+            try {
+                val message = action()
+                _state.update { it.copy(message = message) }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (error: Exception) {
+                _state.update { it.copy(message = "Could not finish. Saved files were kept. ${error.message.orEmpty()}") }
+            } finally {
+                _state.update { it.copy(working = false) }
+                refreshTrash()
+            }
         }
     }
 
@@ -207,6 +233,7 @@ class StationViewModel(app: Application) : AndroidViewModel(app) {
                 hasUsageAccess = inventory.hasUsageAccess(),
                 shizuku = shizuku.state(),
                 aiReady = EngineHolder.isReady,
+                canClearCache = shizuku.canClearCache(),
             )
         }
     }
@@ -214,11 +241,14 @@ class StationViewModel(app: Application) : AndroidViewModel(app) {
     private fun hasAllFilesAccess(): Boolean =
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) Environment.isExternalStorageManager() else true
 
-    fun scan() {
-        if (_state.value.scanning) return
+    fun scan(preserveResult: Boolean = false) {
+        if (_state.value.scanning || _state.value.working) return
         scanJob?.cancel()
         scanJob = viewModelScope.launch {
-            _state.update { it.copy(scanning = true, scanLabel = "Reading shared storage", lastResult = null) }
+            _state.update { it.copy(scanning = true, scanLabel = "Reading shared storage", filesSeen = 0,
+                selectedItems = emptySet(), lastResult = if (preserveResult) it.lastResult else null) }
+
+            try {
 
             var scanResult: SharedStorageScanner.ScanResult? = null
             scanner.scan().collect { progress ->
@@ -239,6 +269,11 @@ class StationViewModel(app: Application) : AndroidViewModel(app) {
             _state.update { it.copy(scanLabel = "Measuring apps") }
             val apps = inventory.load()
 
+            val restricted = if (shizuku.state() == ShizukuBridge.State.READY) {
+                _state.update { it.copy(scanLabel = "Measuring restricted folders") }
+                shizuku.restrictedFolders()
+            } else null
+
             val findings = buildList {
                 duplicates.toFinding(duplicateSets)?.let(::add)
                 addAll(result.findings)
@@ -253,6 +288,8 @@ class StationViewModel(app: Application) : AndroidViewModel(app) {
                     snapshot = result.snapshot,
                     findings = findings,
                     apps = apps,
+                    restrictedFolders = restricted?.folders.orEmpty(),
+                    restrictedNote = restricted?.note,
                     topFilesByCategory = result.files
                         .groupBy { entry -> entry.category }
                         .mapValues { (_, entries) ->
@@ -266,16 +303,25 @@ class StationViewModel(app: Application) : AndroidViewModel(app) {
                                     )
                                 }
                         },
-                    containers = buildContainers(result.snapshot, apps, findings, it.selectedItems),
+                    containers = buildContainers(result.snapshot, apps, findings, emptySet()),
                 )
+            }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (error: Exception) {
+                _state.update { it.copy(message = "Scan could not finish. ${error.message.orEmpty()} Try scanning again.") }
+            } finally {
+                _state.update { it.copy(scanning = false, scanLabel = null) }
             }
         }
     }
 
     /** Selecting a finding selects every item in it; the user can then deselect individually. */
     fun toggleFinding(id: String, selected: Boolean) {
+        if (_state.value.working || _state.value.scanning) return
         _state.update { current ->
             val finding = current.findings.firstOrNull { it.id == id } ?: return@update current
+            if (!finding.kind.canTrash) return@update current
             val paths = finding.items.map { it.path }
             val items = current.selectedItems.toMutableSet().apply {
                 if (selected) addAll(paths) else removeAll(paths.toSet())
@@ -288,6 +334,7 @@ class StationViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun toggleItem(path: String, selected: Boolean) {
+        if (_state.value.working || _state.value.scanning) return
         _state.update { current ->
             val items = current.selectedItems.toMutableSet().apply {
                 if (selected) add(path) else remove(path)
@@ -302,20 +349,17 @@ class StationViewModel(app: Application) : AndroidViewModel(app) {
     /** Moves everything approved into the trash. Reversible until the trash is purged. */
     fun applyPlan() {
         val plan = _state.value.plan
-        if (plan.itemCount == 0 || _state.value.working) return
+        if (plan.itemCount == 0 || _state.value.working || _state.value.scanning) return
 
+        _state.update { it.copy(working = true) }
         viewModelScope.launch {
-            _state.update { it.copy(working = true) }
+            try {
 
             // App-level findings act through their own flows (system uninstall dialog,
             // Shizuku cache clear), never by deleting files behind an app's back.
-            val filePaths = plan.approved
-                .filter { it.kind != FindingKind.UNUSED_APP && it.kind != FindingKind.APP_CACHE }
-                .flatMap { finding -> finding.items.map { it.path } }
-                .filter { it in plan.itemPaths }
-                .distinct()
+            val filePaths = plan.fileItems.map { it.path }
 
-            val result = trash.trash(filePaths)
+            val result = trash.trash(filePaths, plan.fileItems.associateBy { it.path })
             _state.update {
                 it.copy(
                     working = false,
@@ -324,27 +368,29 @@ class StationViewModel(app: Application) : AndroidViewModel(app) {
                 )
             }
             refreshTrash()
-            scan()
+            scan(preserveResult = true)
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (error: Exception) {
+                _state.update { it.copy(message = "Cleanup stopped. Saved files were kept. ${error.message.orEmpty()}") }
+            } finally {
+                _state.update { it.copy(working = false) }
+                refreshTrash()
+            }
         }
     }
 
-    fun clearCachesWithShizuku(onDone: (Boolean, String) -> Unit) {
-        viewModelScope.launch {
-            _state.update { it.copy(working = true) }
-            val result = shizuku.trimAllCaches()
-            _state.update { it.copy(working = false) }
-            onDone(result.ok, if (result.ok) "Caches cleared" else result.stderr.ifBlank { "Shizuku refused the command" })
-            if (result.ok) scan()
-        }
+    fun clearCacheWithShizuku(packageName: String) = perform {
+        val result = shizuku.clearCache(packageName)
+        _state.update { it.copy(settingsPackage = if (result.ok) null else packageName, canClearCache = shizuku.canClearCache()) }
+        if (result.ok) "Cache cleared for $packageName. Rescan to update sizes."
+        else "Android did not confirm cache clearing. ${result.stderr.ifBlank { result.stdout }} Open the app's storage settings instead."
     }
 
-    fun emptyTrash() {
-        viewModelScope.launch {
-            _state.update { it.copy(working = true) }
-            trash.purgeAll()
-            _state.update { it.copy(working = false) }
-            refreshTrash()
-        }
+    fun uninstallWithShizuku(packageName: String) = perform {
+        val result = shizuku.uninstall(packageName)
+        if (result.ok) "Uninstalled $packageName. Rescan to update sizes."
+        else "App was not uninstalled. ${result.stderr.ifBlank { result.stdout }}"
     }
 
     /**
@@ -374,8 +420,9 @@ class StationViewModel(app: Application) : AndroidViewModel(app) {
     ): List<StationState.Container> {
         if (snapshot == null) return emptyList()
 
-        val appBytes = Bytes(apps.sumOf { it.appBytes.value })
-        val appDataBytes = Bytes(apps.sumOf { it.dataBytes.value + it.cacheBytes.value })
+        val measured = StorageAccounting.categories(apps, snapshot)
+        val appBytes = measured[StorageCategory.APPS] ?: Bytes.ZERO
+        val appDataBytes = measured[StorageCategory.APP_DATA] ?: Bytes.ZERO
         val proposed = proposedByCategory(findings, selectedItems)
 
         val order = listOf(
@@ -402,7 +449,7 @@ class StationViewModel(app: Application) : AndroidViewModel(app) {
 
         findings.forEach { finding ->
             finding.items.forEach { item ->
-                if (item.path !in selectedItems) return@forEach
+                if (!finding.kind.canTrash || item.path !in selectedItems) return@forEach
                 if (!counted.add(item.path)) return@forEach
                 val category = when (finding.kind) {
                     FindingKind.UNUSED_APP -> StorageCategory.APPS

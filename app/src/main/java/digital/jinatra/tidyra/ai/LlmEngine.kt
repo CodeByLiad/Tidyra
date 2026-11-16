@@ -21,7 +21,7 @@ interface LlmEngine {
 
     fun unload()
 
-    /** Streams tokens as they are produced, so the UI can show thinking rather than a spinner. */
+    /** Emits generated text. A backend may emit one complete response. */
     fun generate(prompt: String): Flow<String>
 
     suspend fun complete(prompt: String): Result<String>

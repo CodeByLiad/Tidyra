@@ -1,3 +1,3 @@
-First public build.
+First release: scan, per-item approval, collision-safe trash restore, retention choices, persistent organiser undo, and interrupted-copy recovery.
 
-Scan, per-item approval, trash with restore, folder organiser, optional Shizuku, optional on-device Gemma.
+Shared app media counted once. Optional Shizuku with safe Storage Settings fallback. Optional on-device AI, verified in the optimized build. Android 11+.
