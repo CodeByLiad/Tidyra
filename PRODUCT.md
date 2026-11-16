@@ -45,7 +45,7 @@ Can do:
 - Scan shared storage for size by folder, large files, duplicates (hash-verified), empty folders, stale installers and archives.
 - Report per-app app/data/cache sizes via `StorageStatsManager`, and time-since-last-use via `UsageStatsManager` / standby bucket, to surface unused apps.
 - Read and organise `Android/media/*` (reachable with All-files access) — this is where WhatsApp-family media lives.
-- Move loose files into type-based subfolders, previewing the full layout before anything moves.
+- Organise selected files with image thumbnails, larger previews, visible source/destination folders, and a separate final review before moving. Type folders are suggestions: choose another folder individually or for a selection, create a new album, and browse source subfolders. Destinations stay in primary shared internal storage, outside protected/app-managed folders. No files are selected by default. Unsupported image formats show an explicit preview-unavailable state.
 - Request uninstall of user-selected apps through the system package installer.
 - Download, store, select and delete on-device model files; run inference locally.
 - List installed apps without usage access. Browse timestamped running-app and live-service snapshots with Shizuku, search them, and filter all/downloaded/system packages. Individually confirmed stops recheck protection rules at execution and refresh their outcomes. System packages, shared UIDs, active default apps, enabled keyboards, accessibility services, administrators, VPN providers and notification-listener providers are protected from direct stop.

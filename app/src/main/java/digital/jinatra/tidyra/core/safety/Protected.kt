@@ -43,7 +43,7 @@ object Protected {
      * user: a refusal without an explanation reads as a bug.
      */
     fun reason(path: String): String? {
-        val lower = path.lowercase()
+        val lower = path.replace('\\', '/').lowercase()
 
         SEGMENTS.firstOrNull { lower.contains(it) }?.let {
             return when {

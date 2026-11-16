@@ -25,6 +25,7 @@ internal class OrganizeHistory(private val file: File?) {
                 array.put(JSONObject().put("batch", r.batch).put("from", r.move.from.path)
                     .put("to", r.move.to.path).put("size", r.move.expectedSize)
                     .put("modified", r.move.expectedModified).put("digest", r.digest)
+                    .put("root", r.move.approvedRoot?.path ?: JSONObject.NULL)
                     .put("phase", r.phase).put("restore", r.restorePath ?: JSONObject.NULL))
             }
             AtomicJson.write(file, array.toString())
@@ -38,9 +39,9 @@ internal class OrganizeHistory(private val file: File?) {
             (0 until array.length()).map { i ->
                 val item = array.getJSONObject(i)
                 val move = Organizer.Move(File(item.getString("from")), File(item.getString("to")),
-                    item.getLong("size"), item.getLong("modified"))
-                check(move.from.isAbsolute && move.to.isAbsolute &&
-                    move.from.canonicalFile.parentFile == move.to.canonicalFile.parentFile?.parentFile) {
+                    item.getLong("size"), item.getLong("modified"),
+                    if (item.isNull("root") || !item.has("root")) null else File(item.getString("root")))
+                check(Organizer.validScope(move)) {
                     "Invalid organiser recovery path"
                 }
                 Record(item.getString("batch"), move, item.getString("digest"),

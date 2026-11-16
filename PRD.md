@@ -1,6 +1,6 @@
 # Tidyra — Product Requirements
 
-**Owner:** Jinatra · **Status:** v0.1.1 direct-APK update · **Last updated:** 2026-11-16
+**Owner:** Jinatra · **Status:** v0.1.2 direct-APK update · **Last updated:** 2026-11-16
 
 ---
 
@@ -45,7 +45,7 @@ These are testable commitments, not values.
 | Running apps and services | Installed / Running / Services views, search, downloaded/system filters, timestamped manual refresh. Shizuku powers live cross-app snapshots and individually confirmed owner-app stops; system and active protected apps remain read-only |
 | Approval gate | Per-finding selection, a plan total that counts overlapping items once, explicit confirmation |
 | Trash | App-owned, with restore, timed purge, and interrupted-copy reconciliation. Uncertain recovery entries require manual review. Trashed and freed reported separately |
-| Organiser | Plan-then-apply filing of loose files into 8 type buckets, with persisted latest-batch undo. Never deletes or overwrites existing files |
+| Organiser | Image thumbnails and larger previews; explicit selection; suggested type folders with individual/bulk destination choice and new-folder creation; final From/To review before Move; persisted latest-batch undo. Never deletes or overwrites existing files |
 | Shizuku mode | Cache trim, restricted-directory reads, uninstall — all optional, all degrading cleanly |
 | On-device AI | In-app model catalogue, resumable download, load/unload, explanation of findings |
 
@@ -63,7 +63,7 @@ A one-tap clean. A score or rating out of 100. Notifications nagging about stora
 
 **Clean.** Review findings → select specific ones → the plan total appears, counting shared items once → confirm → items move to trash → result states what moved, what failed, and that the space returns when the trash is emptied.
 
-**Organise.** Pick a folder → see the complete planned layout, file by file, before anything moves → apply → undo remains available after closing or restarting. Restore-name collisions receive numbered names.
+**Organise.** Pick or browse a source folder → identify files by thumbnail and larger preview → explicitly select files → inspect From/To paths → keep suggestions or choose/create another destination per file or for the selection → review the final paths and images → Move → undo remains available after closing or restarting. Destination conflicts block review until resolved. Existing files are never overwritten; restore-name collisions receive numbered names. Destination browsing is limited to primary shared internal storage outside protected/app-managed folders.
 
 **AI.** Model screen → pick a model, see its size and whether this phone can run it → download (resumable) → load → findings gain plain-language explanations. Everything works without this step.
 

@@ -30,7 +30,7 @@ SHIZUKU, OPTIONAL
 
 With Shizuku paired, Tidyra measures restricted Android/data and Android/obb folders and uninstalls individually confirmed apps. Cache-only clearing also needs support from your Android build. If it is unsupported or times out, Tidyra remembers that and opens the app's Storage Settings instead. It never substitutes clearing app data. Every screen remains useful without Shizuku.
 
-Organiser undo survives closing the app. Interrupted trash operations are reconciled on restart; uncertain recovered copies stay available for manual review. Android 11 or newer required. Restore anything in Tidyra's trash before uninstalling Tidyra, because Android removes an uninstalled app's private storage.
+Organise shows image thumbnails and larger previews, explicit file selection, and From/To folders. Choose or create a destination per file or for the selection, then review before Move. No file is selected by default. Custom-folder undo survives closing the app. Interrupted trash operations are reconciled on restart; uncertain recovered copies stay available for manual review. Android 11 or newer required. Restore anything in Tidyra's trash before uninstalling Tidyra, because Android removes an uninstalled app's private storage.
 
 FREE AND OPEN
 

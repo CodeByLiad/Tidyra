@@ -1,6 +1,20 @@
 # Resume Tidyra here
 
-Checkpoint: 2026-11-16. Release 0.1.1 adds running-app and service management; minimum Android 11, compile/target SDK 36. The previous 0.1.0 release is published and remains intact.
+Checkpoint: 2026-11-16. Release 0.1.2 fixes image identification and destination choice in Organise; minimum Android 11, compile/target SDK 36. Earlier releases remain intact.
+
+## 0.1.2 image and destination review
+
+Organise now shows thumbnails with larger local previews, explicit selection (none by default), and a separate final review before Move. The final layout is deliberately minimal: a compact source-folder selector, image rows with tappable To paths, and one Review action after selecting files. Repeated headings, chips and instruction paragraphs were removed. Full From/To paths remain in final review and the larger preview. Individual or selected-group destinations can be changed with a hierarchical folder picker, including new-folder creation. The same picker can browse source albums beyond the five common top-level folders. Destination choice stays within primary shared internal storage, outside hidden, protected and Android app-managed trees. Destination conflicts stay visible as proposals and block review until resolved; they are not silently discarded or overwritten.
+
+Custom Move records include an optional approved root. Apply and recovery validate canonical boundaries and reject symlink destinations and protected paths; old four-field moves and journals remain readable. Selected plans are captured for final review, and only that snapshot can be applied. Source metadata and destination availability are rechecked at execution. Undo preserves name collisions, survives restart, and keeps user-created folders.
+
+LocalImageDecoder uses Android ImageDecoder off the main thread, limits image dimensions and concurrent decodes, and keeps a bounded 16 MiB memory cache. No preview network requests or disk thumbnail cache. Unsupported/corrupt files show an explicit unavailable state. File selection has accessible filename labels. Protected path checks now normalize Windows separators as well as Android separators.
+
+64 JVM tests and full Android lint pass without errors. The optimized OrganizePreviewTest passed on the Pixel, including actual red/blue pixel checks, bounded image size, corrupt-file fallback, custom destination apply, and persisted undo. The Pixel UI pass used only the marked generated fixture under Pictures/Tidyra-Organise-QA: thumbnail and larger preview, default destination collision, new-album creation/choice, final From/To review without mutation, Back to edit, confirmed move, process restart, and undo all passed. Existing destination bytes survived. Personal pictures were not moved. Dark theme and font scale 1.3 were checked on the emulator and its font scale restored. Evidence stays local under `build/organise-*`; screenshots and device fixtures are excluded from source archives.
+
+Reference: [Obsidian moving-a-file flow](https://mobbin.com/flows/e3934fdb-68c4-436f-9a05-97f16899771c), reviewed actual previews through Mobbin for destination navigation; implemented with native Android components and the pinned Tidyra design. [Android ImageDecoder](https://developer.android.com/reference/android/graphics/ImageDecoder) supplies local bounded decoding. Release destination: [GitHub v0.1.2](https://github.com/CodeByLiad/Tidyra/releases/tag/v0.1.2).
+
+The final presentation removes the duplicate Organise heading, common-folder chips, explanatory paragraphs, default disabled footer, and repeated per-file action labels. Folder selection is one compact dropdown; thumbnails open the larger preview; the inline To path opens destination choice. Review appears only after selection. Refresh also works for browsed source folders, and source choice falls back to internal storage if the previous source was deleted. The signed minimal build was verified on the emulator. Pixel USB became unstable during transfer of this final presentation, so its install and removal of the marked public Pixel QA folder remain pending a stable connection. The earlier generated-image Pixel move/undo test passed and restored the fixture. Do not remove personal files to resolve USB problems.
 
 ## 0.1.1 runtime management
 

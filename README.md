@@ -31,6 +31,7 @@ Three things it does that a typical cleaner does not:
 - Duplicate files, proved byte-for-byte: grouped by exact size, then an 8 KB edge hash, then a full SHA-256 — same name and same size is never treated as proof
 - Per-app storage (app / data / cache) and time since you last opened each app
 - Installed / Running / Services views with search and downloaded/system filters. Live running snapshots and individual stop controls use Shizuku; protected/system apps remain available for inspection and Android Settings.
+- Image thumbnails and larger local previews in Organise, explicit From/To folders, per-file or selected-group destination choice, new folders, and a separate final review before moving.
 - Stale installers, empty folders, loose files with no folder of their own, and files over 100 MB
 
 ## What it will not do
@@ -85,7 +86,7 @@ video, protected backups, empty folders, loose files):
 | Duplicate detection, hash-verified | works — and keeps the camera original, not merely the oldest copy |
 | Protected files excluded | works — chat databases, backups and key material are never offered |
 | Per-item approval, trash, restore | works |
-| Folder organiser, plan then apply | persistent undo; collision-safe even after restarting |
+| Folder organiser, review then move | thumbnails, chosen destinations, explicit selection and final review; persisted collision-safe undo |
 | Interrupted trash operations | reconciled on next access; uncertain recovered files require manual review |
 | Shared-media storage totals | UID-grouped app totals with scanned shared media counted once |
 | Running apps and services | Shizuku snapshots, search and origin filters; confirmed owner-app stop with outcome verification; protected/system apps remain read-only |
@@ -95,7 +96,7 @@ video, protected backups, empty folders, loose files):
 
 Unit tests cover the safety rules and the prompt framing: `./gradlew testDebugUnitTest`.
 
-The 16 November release pass includes 57 JVM tests, Android lint, a signed minified
+The 16 November release pass includes 64 JVM tests, Android lint, a signed minified
 release, and opt-in optimized-device checks. The release shrinker is pinned separately
 to R8 9.1.57 for Kotlin 2.4 metadata compatibility. Trash retention can be changed in
 the Trash tab; new settings apply on the next launch. See `RESUME.md` for exact

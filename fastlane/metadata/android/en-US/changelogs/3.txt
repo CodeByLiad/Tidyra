@@ -1,0 +1,1 @@
+Organise now shows image thumbnails and larger previews, explicit file selection, and clear From/To paths. Choose or create destination folders per file or for a selection, then review before Move. Browse existing source albums too. Custom-folder undo survives restart, and destination conflicts block unsafe moves. Image previews stay on the phone.

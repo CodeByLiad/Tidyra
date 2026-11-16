@@ -1,28 +1,30 @@
-# Tidyra 0.1.1
+# Tidyra 0.1.2
 
-Signed direct-APK update for Android 11 and newer. Package: `digital.jinatra.tidyra`, version code 2. Updates 0.1.0 using the same signing key.
+Signed direct-APK update for Android 11 and newer. Package: `digital.jinatra.tidyra`, version code 3. Uses the same release signing key as 0.1.0 and 0.1.1.
 
-## Running apps and services
+## Organise with image and destination review
 
-- Apps now has Installed, Running, and Services views, search, and All / Downloaded / System filters.
-- Installed apps are listed without usage access or a storage scan. Storage sizes still require usage access and a scan.
-- Shizuku provides timestamped snapshots of app processes and services with live processes. Refresh to check again; cached or foreground processes are not automatically called wasteful background activity.
-- Stop app asks for confirmation, stops the selected app and all its services, and refreshes the result. Service rows explicitly stop the owning app: Android restricts stopping private services individually.
-- System packages, Tidyra, Shizuku, shared identities, default apps, enabled keyboards, accessibility services, administrators, VPN providers, and notification-listener providers are protected from direct stop. Android Settings remains available.
-- Stopping can interrupt unsaved work, notifications, alarms, downloads and syncing until the app is reopened. It does not delete app data, free storage, or promise battery improvements. No bulk task killer is included.
+- Image thumbnails identify files before selecting them. Tap Preview for a larger image with its name, size, source, and proposed destination. Decoding is local, bounded, and cached in memory; unsupported/corrupt images show an explicit unavailable state.
+- A compact source-folder selector sits above the image list. Each file has a tappable To path for changing its destination. Final review shows From and To together. No repeated page headings or instruction blocks; Review appears after selection.
+- No files are selected by default. Select individual files or explicitly select all when multiple files are shown.
+- Change the destination for one file or the selected group. Browse existing albums or create a new folder within primary shared internal storage. Protected and app-managed folders are excluded.
+- Browse source subfolders to organise an existing album, rather than only files directly in the five common top-level folders.
+- Review opens a separate page showing exactly the selected files and final destinations. Back to edit changes nothing. Only the final Move button moves files.
+- Existing destination names produce visible warnings and block review until resolved. Apply rechecks sources and destinations; existing files are not replaced.
+- Custom destination moves remain undoable after closing or restarting. Old undo journals remain readable. Name collisions on restore receive a new name, and user-created album folders are preserved.
 
-## Validation and limits
+## Validation
 
-57 JVM tests pass, including process parsing, current-profile isolation, active-service detection, and UID/name matching. Android lint reports no errors. Runtime controls are verified using the optimized isolated build and a disposable app on both the Pixel 10 Pro / Android 17 and an Android 16 / API 36 emulator with official Shizuku. Checks cover protected targets, component ownership, service-owner stopping, app stopping, expired service rows, and preserved data. No personal app is stopped during testing.
+64 JVM tests pass; Android lint reports no errors. The optimized build passed real Pixel image decoding (including corrupt-image handling) and custom-folder move/undo checks. Pixel UI testing verified thumbnails, larger previews, destination conflicts, new-album selection, final From/To review without mutation, Back to edit, confirmed movement into the chosen album, and undo after force-stopping and restarting the app. Only a marked generated-image fixture was moved; personal pictures were not moved.
 
-The Pixel UI also passed Cancel/confirm checks with internal and external data preserved. Light/dark themes, large text, protected system controls, and tab preservation across font-size changes were checked on the emulator.
+The image/move/undo behavior was checked on the Pixel. The final minimal presentation, Review/Edit controls, dark theme and larger text were checked on the emulator. File previews use Android's ImageDecoder and no additional network requests.
 
-Without Shizuku, Android restricts cross-app running information and direct stop actions. Installed apps and app settings remain useful. Snapshot visibility varies across Android builds. Cache-only clearing still uses Storage Settings on the Pixel build where Android's command hangs. F-Droid acceptance remains pending because MediaPipe bundles prebuilt native libraries.
+## Install and limits
 
-## Install
+Install over the signed earlier release to preserve its data and trash. Do not uninstall an old build to bypass a signature mismatch; restore anything you need from its private trash first. Development `.debug` and `.usbtest` packages remain separate.
 
-Install over the signed 0.1.0 APK to preserve its app data and trash. Do not uninstall an old Tidyra build to bypass a signature mismatch: restore any needed files from its private trash first. Development `.debug` and `.usbtest` packages remain separate.
+Destination selection covers primary shared internal storage, not cloud/document providers or other storage volumes. The optional Shizuku running-app controls from 0.1.1 remain available. Cache-only clearing still falls back to Storage Settings on the tested Pixel Android build. F-Droid acceptance remains separate work because MediaPipe bundles prebuilt native libraries.
 
 Certificate SHA-256: `570253ffec64c5f15ee193b42e9d64b86c2ec37945f23c0c5b50200524da5311`.
 
-The source archive excludes signing keys, credentials, phone backups, and generated device data.
+Source archives exclude private signing material, credentials, phone backups, screenshots, and generated device fixtures.

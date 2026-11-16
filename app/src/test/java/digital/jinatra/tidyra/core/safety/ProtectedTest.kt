@@ -13,6 +13,11 @@ import java.io.File
  * They are worth testing precisely because they are boring.
  */
 class ProtectedTest {
+    @Test fun `protected folder checks handle both path separators`() {
+        assertNotNull(Protected.reason("C:\\storage\\Albums\\wallet\\photo.png"))
+        assertNotNull(Protected.reason("C:\\storage\\Backups\\photo.png"))
+        assertNull(Protected.reason("C:\\storage\\Albums\\Family\\photo.png"))
+    }
 
     private val root = "/storage/emulated/0"
 

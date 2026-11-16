@@ -38,7 +38,8 @@ class Organizer(historyFile: File? = null) {
     }
 
     data class Move(val from: File, val to: File,
-        val expectedSize: Long = from.length(), val expectedModified: Long = from.lastModified()) {
+        val expectedSize: Long = from.length(), val expectedModified: Long = from.lastModified(),
+        val approvedRoot: File? = null) {
         val bucketName: String get() = to.parentFile?.name.orEmpty()
     }
 
@@ -54,12 +55,16 @@ class Organizer(historyFile: File? = null) {
      * @param includeOther when false, files that match no bucket are left exactly where they are
      *   rather than being swept into an "Other" folder nobody asked for.
      */
-    fun plan(directory: File, includeOther: Boolean = false): Plan {
+    fun plan(directory: File, includeOther: Boolean = false, includeConflicts: Boolean = false): Plan {
         val children = directory.listFiles()?.filter { it.isFile } ?: return Plan(emptyList(), emptyList())
         val moves = ArrayList<Move>()
         val skipped = ArrayList<Pair<File, String>>()
 
         for (file in children) {
+            if (java.nio.file.Files.isSymbolicLink(file.toPath())) {
+                skipped += file to "Symbolic link, left alone"
+                continue
+            }
             if (file.name.startsWith(".")) {
                 skipped += file to "Hidden file, left alone"
                 continue
@@ -79,7 +84,7 @@ class Organizer(historyFile: File? = null) {
             }
 
             val target = File(File(directory, bucket.folderName), file.name)
-            if (target.exists()) {
+            if (target.exists() && !includeConflicts) {
                 skipped += file to "A file of that name is already in ${bucket.folderName}"
                 continue
             }
@@ -99,10 +104,11 @@ class Organizer(historyFile: File? = null) {
             var record: OrganizeHistory.Record? = null
             var renamed = false
             runCatching {
-                check(move.from.canonicalFile.parentFile == move.to.canonicalFile.parentFile?.parentFile) {
+                check(validScope(move)) {
                     "Organising must stay inside the approved folder"
                 }
                 check(Protected.reason(move.from.canonicalPath) == null) { "Protected file; left alone" }
+                check(Protected.reason(move.to.canonicalPath) == null) { "Protected destination; choose another folder" }
                 check(move.from.length() == move.expectedSize && move.from.lastModified() == move.expectedModified) {
                     "File changed since preview; preview again"
                 }
@@ -160,5 +166,37 @@ class Organizer(historyFile: File? = null) {
         val extension = file.extension.lowercase()
         return Bucket.entries.firstOrNull { extension in it.extensions } ?: Bucket.OTHER
     }
-    private companion object { val locks = ConcurrentHashMap<String, Mutex>() }
+    companion object {
+        private val locks = ConcurrentHashMap<String, Mutex>()
+
+        fun destinationAllowed(root: File, directory: File): Boolean = runCatching {
+            val base = root.canonicalFile
+            val target = directory.canonicalFile
+            if (!target.toPath().startsWith(base.toPath())) return@runCatching false
+            val relative = base.toPath().relativize(target.toPath()).map { it.toString() }
+            if (relative.firstOrNull()?.equals("Android", true) == true || relative.any { it.startsWith(".") && it.isNotEmpty() }) return@runCatching false
+            var ancestor: File? = directory.absoluteFile
+            while (ancestor != null && ancestor.toPath().startsWith(root.absoluteFile.toPath())) {
+                if (java.nio.file.Files.isSymbolicLink(ancestor.toPath())) return@runCatching false
+                if (ancestor == root.absoluteFile) break
+                ancestor = ancestor.parentFile
+            }
+            Protected.reason(target.path + File.separator) == null && (!target.exists() || target.isDirectory)
+        }.getOrDefault(false)
+
+        fun retarget(move: Move, directory: File, root: File): Move {
+            require(destinationAllowed(root, directory)) { "Choose a folder in internal storage, outside protected and app-managed folders" }
+            require(move.from.canonicalFile.toPath().startsWith(root.canonicalFile.toPath())) { "Source is outside the approved storage" }
+            require(move.from.canonicalFile.parentFile != directory.canonicalFile) { "The file is already in this folder" }
+            return move.copy(to = File(directory.canonicalFile, move.from.name), approvedRoot = root.canonicalFile)
+        }
+
+        internal fun validScope(move: Move): Boolean = runCatching {
+            if (!move.from.isAbsolute || !move.to.isAbsolute || move.from.name != move.to.name || move.from.canonicalFile == move.to.canonicalFile) return@runCatching false
+            val root = move.approvedRoot
+            if (root == null) move.from.canonicalFile.parentFile == move.to.canonicalFile.parentFile?.parentFile
+            else root.isAbsolute && move.from.canonicalFile.toPath().startsWith(root.canonicalFile.toPath()) &&
+                destinationAllowed(root, move.to.parentFile!!)
+        }.getOrDefault(false)
+    }
 }
