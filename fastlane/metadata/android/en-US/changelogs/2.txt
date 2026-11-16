@@ -1,0 +1,1 @@
+Apps now has Installed, Running, and Services views, search, and downloaded/system filters. Installed apps work without usage access. Shizuku provides running snapshots and confirmed Stop app controls, which stop the app and all its services. Protected apps are excluded and outcomes checked after stopping. No bulk task killing or storage-saving claims.

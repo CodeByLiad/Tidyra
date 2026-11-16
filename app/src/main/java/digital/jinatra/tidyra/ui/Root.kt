@@ -31,6 +31,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -83,18 +84,25 @@ enum class Section(val label: String) {
 @Composable
 fun Root(
     station: StationState,
+    apps: digital.jinatra.tidyra.ui.apps.AppsState,
     organize: OrganizeState,
     model: ModelState,
     darkTheme: Boolean,
     callbacks: RootCallbacks,
 ) {
-    var section by remember { mutableStateOf(Section.STORAGE) }
+    var section by rememberSaveable { mutableStateOf(Section.STORAGE) }
     var openFinding by remember { mutableStateOf<String?>(null) }
     // Hoisted so returning from a detail screen lands where the user left, not at the top.
     val storageScroll = rememberLazyListState()
     var openCategory by remember { mutableStateOf<StorageCategory?>(null) }
     val colors = MaterialTheme.colorScheme
     val snackbar = remember { SnackbarHostState() }
+    LaunchedEffect(apps.message) {
+        apps.message?.let {
+            snackbar.showSnackbar(it, duration = SnackbarDuration.Long)
+            callbacks.onDismissAppsMessage()
+        }
+    }
     LaunchedEffect(station.message) {
         station.message?.let {
             val settingsPackage = station.settingsPackage
@@ -207,6 +215,7 @@ fun Root(
                 )
 
                 Section.APPS -> AppsScreen(
+                    state = apps,
                     apps = station.apps,
                     hasUsageAccess = station.hasUsageAccess,
                     shizuku = station.shizuku,
@@ -216,6 +225,9 @@ fun Root(
                     canClearCache = station.canClearCache,
                     working = station.working || station.scanning,
                     onGrantUsage = callbacks.onGrantUsage,
+                    onRefresh = callbacks.onRefreshApps,
+                    onStop = callbacks.onStopRuntime,
+                    onRequestShizuku = callbacks.onRequestShizuku,
                 )
 
                 Section.ORGANISE -> OrganizeScreen(
@@ -411,6 +423,9 @@ private fun SectionTabs(current: Section, onSelect: (Section) -> Unit) {
 
 /** One bag of callbacks so the root signature stays readable as sections are added. */
 data class RootCallbacks(
+    val onRefreshApps: () -> Unit,
+    val onStopRuntime: (String, String?) -> Unit,
+    val onDismissAppsMessage: () -> Unit,
     val onScan: () -> Unit,
     val onToggleFinding: (String, Boolean) -> Unit,
     val onToggleItem: (String, Boolean) -> Unit,

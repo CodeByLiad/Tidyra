@@ -7,7 +7,7 @@ try {
     $metadata = Get-Content -Raw app/build/outputs/apk/release/output-metadata.json | ConvertFrom-Json
     $version = $metadata.elements[0].versionName
     if ($version -notmatch '^\d+\.\d+\.\d+$') { throw 'Expected a production release version.' }
-    $outputRoot = Join-Path $projectRoot 'build/release'
+    $outputRoot = Join-Path $projectRoot "build/release/$version"
     New-Item -ItemType Directory -Force -Path $outputRoot | Out-Null
     $apkName = "Tidyra-$version.apk"
     Copy-Item -LiteralPath "app/build/outputs/apk/release/$($metadata.elements[0].outputFile)" -Destination (Join-Path $outputRoot $apkName)

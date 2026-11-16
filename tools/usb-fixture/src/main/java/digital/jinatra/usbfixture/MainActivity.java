@@ -8,6 +8,7 @@ import java.nio.charset.StandardCharsets;
 public class MainActivity extends Activity {
   @Override public void onCreate(Bundle state) {
     super.onCreate(state);
+    startService(new android.content.Intent(this, FixtureService.class));
     TextView text = new TextView(this);
     text.setText("Preparing disposable Tidyra test data...");
     setContentView(text);

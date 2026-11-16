@@ -1,54 +1,35 @@
 package digital.jinatra.tidyra.ui.apps
 
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.produceState
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.platform.LocalContext
-import androidx.core.graphics.drawable.toBitmap
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.runtime.Composable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.dp
+import digital.jinatra.tidyra.core.runtime.InstalledApp
+import digital.jinatra.tidyra.core.runtime.RunningService
 import digital.jinatra.tidyra.core.scan.AppInventory
+import digital.jinatra.tidyra.core.safety.Protected
 import digital.jinatra.tidyra.core.shizuku.ShizukuBridge
 import digital.jinatra.tidyra.ui.common.AppIcon
 import digital.jinatra.tidyra.ui.format.Format
 import digital.jinatra.tidyra.ui.theme.LocalStationType
 import digital.jinatra.tidyra.ui.theme.Module
+import androidx.compose.foundation.shape.RoundedCornerShape
+import java.text.DateFormat
+import java.util.Date
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 
-/**
- * Every app, largest first, with what it holds and when it was last opened.
- *
- * No checkboxes and no bulk actions: uninstalling goes through Android's own dialog, one
- * app at a time, which is both the platform's rule and the right amount of friction for
- * something irreversible.
- */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AppsScreen(
+    state: AppsState,
     apps: List<AppInventory.AppEntry>,
     hasUsageAccess: Boolean,
     shizuku: ShizukuBridge.State,
@@ -58,158 +39,147 @@ fun AppsScreen(
     canClearCache: Boolean,
     working: Boolean,
     onGrantUsage: () -> Unit,
+    onRefresh: () -> Unit,
+    onStop: (String, String?) -> Unit,
+    onRequestShizuku: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    var view by rememberSaveable { mutableStateOf("Installed") }
+    var origin by rememberSaveable { mutableStateOf("Downloaded") }
+    var query by rememberSaveable { mutableStateOf("") }
+    var stopPackage by rememberSaveable { mutableStateOf<String?>(null) }
+    var stopComponent by rememberSaveable { mutableStateOf<String?>(null) }
     val type = LocalStationType.current
     val colors = MaterialTheme.colorScheme
-    val thirdParty = apps.filterNot { it.isSystem }
-    // Count what the list shows. A headline measuring every package on the phone,
-    // over a list of the ones you installed, is two numbers the reader cannot reconcile.
-    val storageGroups = digital.jinatra.tidyra.core.scan.StorageAccounting.groups(thirdParty, null)
-    val cacheTotal = storageGroups.sumOf { it.cacheBytes.value }
+    val busy = working || state.busy
+    LaunchedEffect(shizuku) { onRefresh() }
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { onRefresh() }
+    val byPackage = state.installed.associateBy { it.packageName }
+    val stats = if (hasUsageAccess) apps.associateBy { it.packageName } else emptyMap()
+    fun matches(app: InstalledApp, extra: String = "") =
+        (origin == "All" || app.isSystem == (origin == "System")) &&
+            (query.isBlank() || "${app.label} ${app.packageName} $extra".contains(query.trim(), ignoreCase = true))
+    val appRows = state.installed.filter { matches(it) && (view != "Running" ||
+        it.processes(state.running).isNotEmpty() || state.running.services.any { service -> service.packageName == it.packageName }) }
+    val serviceRows = state.running.services.filter { service -> byPackage[service.packageName]?.let { matches(it, service.component) } == true }
+    val available = shizuku == ShizukuBridge.State.READY &&
+        if (view == "Services") state.running.servicesAvailable else state.running.processesAvailable
 
-    LazyColumn(
-        modifier = modifier.fillMaxWidth(),
-        contentPadding = PaddingValues(bottom = Module.x4),
-    ) {
+    LazyColumn(modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = Module.x4)) {
         item {
-            Column(
-                Modifier.padding(start = Module.x3, end = Module.x3, top = Module.x2, bottom = Module.u),
-            ) {
-                Text(
-                    // Code, data and cache in one figure. The Storage tab splits the
-                    // same bytes into two categories, so without this line the reader is
-                    // handed two different totals for "apps" and no way to reconcile them.
-                    text = if (hasUsageAccess) {
-                        "${Format.count(thirdParty.size, "app")} installed, holding ${Format.size(digital.jinatra.tidyra.core.model.Bytes(storageGroups.sumOf { it.appBytes.value + it.dataBytes.value }))}" +
-                            " \u2014 Android's app totals include shared media. Storage separates shared media by type. Shared app storage groups are counted once."
-                    } else {
-                        "Usage access is off, so sizes are hidden"
-                    },
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = colors.onSurfaceVariant,
-                )
+            Column(Modifier.padding(horizontal = Module.x3, vertical = Module.x2), verticalArrangement = Arrangement.spacedBy(Module.u)) {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Text("Apps", style = MaterialTheme.typography.headlineLarge, modifier = Modifier.weight(1f))
+                    TextButton(onClick = onRefresh, enabled = !busy) { Text(if (state.busy) "REFRESHING" else "REFRESH", style = type.stencil) }
+                }
+                SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+                    listOf("Installed", "Running", "Services").forEachIndexed { index, title ->
+                        SegmentedButton(selected = view == title, onClick = { view = title },
+                            colors = SegmentedButtonDefaults.colors(activeContainerColor = colors.primary.copy(alpha = 0.06f),
+                                activeContentColor = colors.primary, inactiveContainerColor = colors.surface,
+                                inactiveContentColor = colors.onSurfaceVariant, activeBorderColor = colors.outline, inactiveBorderColor = colors.outline),
+                            shape = SegmentedButtonDefaults.itemShape(index, 3)) { Text(title) }
+                    }
+                }
+                Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(Module.u)) {
+                    listOf("All", "Downloaded", "System").forEach { title ->
+                        FilterChip(selected = origin == title, onClick = { origin = title }, label = { Text(title) },
+                            colors = FilterChipDefaults.filterChipColors(selectedContainerColor = colors.primary.copy(alpha = 0.06f), selectedLabelColor = colors.primary))
+                    }
+                }
+                OutlinedTextField(value = query, onValueChange = { query = it }, singleLine = true,
+                    label = { Text("Search apps or services") }, modifier = Modifier.fillMaxWidth())
+                Text(when (view) {
+                    "Installed" -> "Installed apps are listed without usage access. Sizes appear after a storage scan with usage access."
+                    "Running" -> "A snapshot of app processes, including foreground and cached processes. Running does not mean wasting battery. Stopping apps does not free storage."
+                    else -> "Services with a live process. Stop app stops the owning app and all its services. Android restricts stopping another app's private services individually."
+                }, style = MaterialTheme.typography.bodyMedium, color = colors.onSurfaceVariant)
+                if (origin == "System") Text("System apps and their services are shown for inspection. Direct stop and uninstall are protected; Android Settings remains available.",
+                    style = MaterialTheme.typography.bodyMedium, color = colors.onSurfaceVariant)
+                state.error?.let { Text(it, color = colors.error, style = MaterialTheme.typography.bodyMedium) }
+                if (state.updatedAt > 0) Text("Updated ${DateFormat.getTimeInstance(DateFormat.SHORT).format(Date(state.updatedAt))} · refresh to check again",
+                    style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
+                if (view == "Installed" && !hasUsageAccess) TextButton(onClick = onGrantUsage) { Text("GRANT USAGE ACCESS", style = type.stencil) }
+                if (view != "Installed" && shizuku != ShizukuBridge.State.READY) {
+                    Text("Android restricts other apps' running information. Start Shizuku and allow Tidyra to inspect and stop apps. You can still manage installed apps in Android Settings.",
+                        style = MaterialTheme.typography.bodyMedium)
+                    if (shizuku == ShizukuBridge.State.NOT_PERMITTED) TextButton(onClick = onRequestShizuku) { Text("ALLOW SHIZUKU", style = type.stencil) }
+                }
+                if (view != "Installed") state.running.note?.let { Text(it, color = colors.error, style = MaterialTheme.typography.bodyMedium) }
+                if (view == "Installed" || available) Text(
+                    if (view == "Services") "${Format.count(serviceRows.size, "service")}" else "${Format.count(appRows.size, "app")}",
+                    style = MaterialTheme.typography.titleLarge)
             }
             HorizontalDivider(color = colors.outline)
         }
-
-        if (!hasUsageAccess) {
-            item {
-                TextButton(onClick = onGrantUsage, modifier = Modifier.padding(Module.x3)) {
-                    Text("GRANT USAGE ACCESS", style = type.stencil, color = MaterialTheme.colorScheme.primary)
-                }
+        if (view == "Installed" || available) {
+            if ((view == "Services" && serviceRows.isEmpty() || view != "Services" && appRows.isEmpty()) && !state.busy && state.error == null) item {
+                Text("No matches in this snapshot. Change the filters or refresh.", Modifier.padding(Module.x3), style = MaterialTheme.typography.bodyLarge)
             }
-            return@LazyColumn
-        }
-
-        if (cacheTotal > 0) {
-            item {
-                Row(
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = Module.x3, vertical = Module.x2),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Column(Modifier.weight(1f)) {
-                        Text(
-                            text = "${Format.size(digital.jinatra.tidyra.core.model.Bytes(cacheTotal))} of cache",
-                            style = MaterialTheme.typography.titleLarge,
-                            color = colors.onSurface,
-                        )
-                        Text(
-                            text = if (shizuku == ShizukuBridge.State.READY && !canClearCache) {
-                                "Android's cache-only command did not complete on this phone. Cache actions open the app's storage settings instead. App data is never cleared as a fallback."
-                            } else if (shizuku == ShizukuBridge.State.READY) {
-                                "Review an app below to clear only its cache. You confirm each app before Shizuku acts."
-                            } else {
-                                "Android blocks this without Shizuku. Tap an app below to open its storage screen instead."
-                            },
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = colors.onSurfaceVariant,
-                            modifier = Modifier.padding(top = Module.half),
-                        )
-                    }
-                }
-                HorizontalDivider(color = colors.outline)
+            if (view == "Services") items(serviceRows, key = { it.component }) { service ->
+                val app = byPackage.getValue(service.packageName)
+                RuntimeRow(app, service, null, null, busy, shizuku, canClearCache,
+                    onOpenAppSettings, onUninstall, onClearCache) { stopPackage = app.packageName; stopComponent = service.component }
+            } else items(appRows, key = { it.packageName }) { app ->
+                val processText = if (view == "Running") "${Format.count(app.processes(state.running).size, "process", "processes")} · ${Format.count(state.running.services.count { it.packageName == app.packageName }, "service")}" else null
+                RuntimeRow(app, null, processText, if (view == "Installed") stats[app.packageName] else null,
+                    busy, shizuku, canClearCache, onOpenAppSettings, onUninstall, onClearCache,
+                    if (view == "Running") ({ stopPackage = app.packageName; stopComponent = null }) else null)
             }
         }
-
-        items(thirdParty, key = { it.packageName }) { app ->
-            AppRow(app, onOpenAppSettings, onUninstall, onClearCache, working,
-                canClearCache && shizuku == ShizukuBridge.State.READY)
-        }
+    }
+    stopPackage?.let { pkg ->
+        val app = byPackage[pkg]
+        val component = stopComponent
+        AlertDialog(shape = RoundedCornerShape(Module.half), onDismissRequest = { stopPackage = null },
+            title = { Text("Force stop ${app?.label ?: pkg}?") },
+            text = { Column(verticalArrangement = Arrangement.spacedBy(Module.u)) {
+                Text(component ?: pkg, style = MaterialTheme.typography.bodyMedium)
+                Text("This stops the entire app and all its services${if (component != null) ", including the service shown above" else ""}. Unsaved work may be lost, and notifications, alarms, and syncing may stop until you reopen it. Files and app data are not deleted. This does not free storage.")
+            } },
+            confirmButton = { TextButton(enabled = !busy && app?.stopBlockedReason == null && app != null && shizuku == ShizukuBridge.State.READY,
+                onClick = { stopPackage = null; onStop(pkg, component) }) { Text("FORCE STOP APP") } },
+            dismissButton = { TextButton(onClick = { stopPackage = null }) { Text("CANCEL") } })
     }
 }
 
 @Composable
-private fun AppRow(
-    app: AppInventory.AppEntry,
-    onOpenAppSettings: (String) -> Unit,
-    onUninstall: (String) -> Unit,
-    onClearCache: (String) -> Unit,
-    working: Boolean,
-    canClearCache: Boolean,
+private fun RuntimeRow(
+    app: InstalledApp, service: RunningService?, processText: String?, stats: AppInventory.AppEntry?,
+    busy: Boolean, shizuku: ShizukuBridge.State, canClearCache: Boolean,
+    onSettings: (String) -> Unit, onUninstall: (String) -> Unit, onClearCache: (String) -> Unit,
+    onStop: (() -> Unit)?,
 ) {
     val type = LocalStationType.current
     val colors = MaterialTheme.colorScheme
-    val stale = app.daysSinceUse >= 90
-
-    Column(Modifier.clickable { onOpenAppSettings(app.packageName) }) {
-        Row(
-            Modifier
-                .fillMaxWidth()
-                .padding(horizontal = Module.x3, vertical = Module.x2),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
+    Column(Modifier.padding(horizontal = Module.x3, vertical = Module.x2)) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
             AppIcon(app.packageName)
-            Column(
-                Modifier
-                    .weight(1f)
-                    .padding(start = Module.x2),
-            ) {
-                Text(
-                    text = app.label,
-                    style = MaterialTheme.typography.titleLarge,
-                    color = colors.onSurface,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                Text(
-                    text = buildString {
-                        append(Format.days(app.daysSinceUse))
-                        if (app.cacheBytes.value > 0) {
-                            append(" · ")
-                            append(Format.size(app.cacheBytes))
-                            append(" cache")
-                        }
-                    },
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = if (stale) MaterialTheme.colorScheme.primary else colors.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 2.dp),
-                )
-            }
-            Column(
-                horizontalAlignment = Alignment.End,
-                verticalArrangement = Arrangement.spacedBy(2.dp),
-            ) {
-                Text(
-                    text = Format.size(app.totalBytes),
-                    style = MaterialTheme.typography.titleLarge,
-                    color = colors.onSurface,
-                )
-                TextButton(
-                    onClick = { onUninstall(app.packageName) },
-                    enabled = !working && !digital.jinatra.tidyra.core.safety.Protected.isProtectedPackage(app.packageName, app.isSystem),
-                    contentPadding = PaddingValues(0.dp),
-                ) {
-                    Text("UNINSTALL", style = type.stencil, color = MaterialTheme.colorScheme.primary)
-                }
-                if (app.cacheBytes.value > 0) TextButton(
-                    onClick = { onClearCache(app.packageName) }, enabled = !working,
-                    contentPadding = PaddingValues(0.dp),
-                ) { Text(if (canClearCache) "CACHE" else "STORAGE SETTINGS", style = type.stencil) }
+            Column(Modifier.weight(1f).padding(start = Module.x2), verticalArrangement = Arrangement.spacedBy(Module.half)) {
+                Text(app.label, style = MaterialTheme.typography.titleLarge, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                Text(service?.component?.substringAfter('/') ?: app.packageName, style = MaterialTheme.typography.bodySmall,
+                    color = colors.onSurfaceVariant, maxLines = 3, overflow = TextOverflow.Ellipsis)
+                Text(if (service != null) "PID ${service.pid} · ${if (service.foreground) "Foreground service" else "Service"}"
+                    else processText ?: if (stats != null) "${Format.size(stats.totalBytes)} · ${Format.days(stats.daysSinceUse)}" else "Storage size not measured",
+                    style = MaterialTheme.typography.bodyMedium, color = colors.onSurfaceVariant)
+                if (onStop != null && app.stopBlockedReason != null) Text(app.stopBlockedReason, style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
             }
         }
-        HorizontalDivider(color = colors.outlineVariant)
+        // Actions wrap below the content rather than squeezing names on narrow phones.
+        if (onStop != null) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                TextButton(onClick = { onSettings(app.packageName) }, enabled = !busy) { Text("APP SETTINGS", style = type.stencil) }
+                TextButton(onClick = onStop, enabled = !busy && app.stopBlockedReason == null && shizuku == ShizukuBridge.State.READY) {
+                    Text("STOP APP", style = type.stencil)
+                }
+            }
+        } else {
+            TextButton(onClick = { onSettings(app.packageName) }, enabled = !busy) { Text("APP SETTINGS", style = type.stencil) }
+            if (stats != null && stats.cacheBytes.value > 0) TextButton(onClick = { onClearCache(app.packageName) }, enabled = !busy && !app.isSystem) {
+                Text(if (canClearCache && shizuku == ShizukuBridge.State.READY) "CACHE ${Format.size(stats.cacheBytes)}" else "STORAGE SETTINGS", style = type.stencil)
+            }
+            if (!Protected.isProtectedPackage(app.packageName, app.isSystem)) TextButton(onClick = { onUninstall(app.packageName) }, enabled = !busy) { Text("UNINSTALL", style = type.stencil) }
+        }
     }
+    HorizontalDivider(color = colors.outlineVariant)
 }

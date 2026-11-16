@@ -137,6 +137,32 @@ class ShizukuBridge(private val context: Context) {
 
     data class RestrictedResult(val folders: List<RestrictedFolder>, val note: String?)
 
+    suspend fun running(): digital.jinatra.tidyra.core.runtime.RunningSnapshot {
+        val processes = exec("ps", "-A", "-o", "UID,PID,NAME")
+        val services = exec("dumpsys", "activity", "services")
+        val processOk = processes.ok && Regex("(?m)^\\s*UID\\s+PID\\s+NAME\\s*$").containsMatchIn(processes.stdout)
+        val serviceOk = services.ok && services.stdout.contains("ACTIVITY MANAGER SERVICES")
+        return digital.jinatra.tidyra.core.runtime.RunningSnapshot(
+            if (processOk) digital.jinatra.tidyra.core.runtime.RunningParser.processes(processes.stdout, userId.toInt()) else emptyList(),
+            if (serviceOk) digital.jinatra.tidyra.core.runtime.RunningParser.services(services.stdout, userId.toInt()) else emptyList(),
+            processOk, serviceOk, if (processOk && serviceOk) null else "Android did not provide a complete running snapshot. Refresh or use app settings.")
+    }
+
+    /** Recheck live package policy at the privileged boundary, never trust a stale row. */
+    suspend fun stop(packageName: String, component: String? = null): ShellResult {
+        val app = digital.jinatra.tidyra.core.runtime.RuntimeInventory(context).installed()
+            .firstOrNull { it.packageName == packageName }
+        if (app == null || app.stopBlockedReason != null) return ShellResult(-1, "", "Stop refused: ${app?.stopBlockedReason ?: "app unavailable"}")
+        if (component == null) return exec("cmd", "activity", "force-stop", "--user", userId, packageName)
+        val target = android.content.ComponentName.unflattenFromString(component)
+        if (target == null || target.packageName != packageName || !Regex("[A-Za-z0-9_.$]+/[A-Za-z0-9_.$]+").matches(component))
+            return ShellResult(-1, "", "Invalid service component")
+        // Shell cannot individually stop another app's non-exported services. The UI
+        // explicitly confirms stopping the owner and ALL its services before this call.
+        // A service ending during review must not block that approved owner-app stop.
+        return exec("cmd", "activity", "force-stop", "--user", userId, packageName)
+    }
+
     suspend fun restrictedFolders(): RestrictedResult {
         val folders = mutableListOf<RestrictedFolder>()
         val packages = context.packageManager.getInstalledApplications(0)

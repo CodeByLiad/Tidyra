@@ -7,6 +7,7 @@ WHAT IT FINDS
 * Folder sizes across shared storage, including the Android/media folders where chat apps keep their pictures and videos
 * Duplicate files, proved byte for byte: grouped by exact size, then an 8 KB edge hash, then a full SHA-256. Two files sharing a name and a size is never treated as proof
 * How much each app holds and how long since you last opened it
+* Installed, running-app, and service lists with search and downloaded/system filters; Shizuku enables live snapshots and confirmed Stop app actions that stop the owner and all its services. System and protected apps remain read-only. Stopping does not free storage or promise better battery life
 * Stale installers, empty folders, loose files with no folder of their own, and anything over 100 MB
 
 HOW IT BEHAVES

@@ -1,6 +1,26 @@
 # Resume Tidyra here
 
-Checkpoint: 2026-11-16. Release 0.1.0 is prepared for GitHub publication with a signed direct APK, minimum Android 11, compile/target SDK 36. Read this checkpoint before older build notes.
+Checkpoint: 2026-11-16. Release 0.1.1 adds running-app and service management; minimum Android 11, compile/target SDK 36. The previous 0.1.0 release is published and remains intact.
+
+## 0.1.1 runtime management
+
+Apps has Installed / Running / Services views, search, and All / Downloaded / System filters. Installed metadata comes directly from PackageManager, independent of usage access and storage scans. Storage statistics remain separate. Running snapshots use Shizuku `ps -A -o UID,PID,NAME` and `dumpsys activity services`; numeric UID/user matching prevents other-profile processes being assigned to the current profile. Only service records with live ProcessRecords count; pending/restarting records do not. Foreground and cached processes are described honestly, without storage or battery-saving claims. Snapshots have timestamps and explicit refresh, including refresh after returning from Android Settings.
+
+Stop app confirms a force-stop of the owner and all its services, then obtains a new snapshot and reports verified absence, continued activity/restart, or an unverifiable result. An actual emulator test showed `stop-service` cannot stop another app's private service even with shell access. Service rows therefore explicitly offer Stop app, rather than an unreliable individual-service control. No silent fallback broadens an approved action.
+
+The privileged boundary rechecks installed-package policy, component ownership and current-profile scope. A service finishing during confirmation does not block the explicitly approved owner-app stop. System/persistent packages, core UIDs, Tidyra/Shizuku, shared UIDs, active default apps, enabled keyboards/accessibility services/admins, VPN providers and notification listeners are protected. Missing protection information fails closed. System apps/services can be inspected and opened in Android Settings.
+
+57 JVM tests pass; full Android lint reports no errors. New runtime validation uses the optimized isolated APK on both the Pixel 10 Pro / API 37 and the API 36 emulator with official Shizuku and `digital.jinatra.usbfixture` only. Both device tests passed for protected-package/component refusal, service-owner stop, app stop, and preserved data; the Pixel also passed the expired-service-row regression. Evidence: `build/runtime-control-phone.txt`, `build/runtime-control-emulator.txt`. Repeat instructions and fixture source are under `tools/usb-fixture/`. Version code is now 2, signed with the original production key for in-place updates. Release packaging writes to `build/release/<version>/` to preserve older local artifacts.
+
+References: [Android running-service visibility and process restrictions](https://developer.android.com/reference/android/app/ActivityManager), [ActivityManager shell commands](https://android.googlesource.com/platform/frameworks/base/+/master/services/core/java/com/android/server/am/ActivityManagerShellCommand.java).
+
+The 0.1.1 Pixel UI check passed: Cancel left the fixture running; confirmed Stop app removed its process and preserved both internal and external keep markers. Emulator light/dark and font scale 1.3 were checked; system-service controls were effectively disabled, and the selected Services view survived restoring font scale to 1.0. The selected-control colors use Tidyra's accent with sufficient text contrast rather than the library's default purple. Captures remain local under `build/runtime-*`.
+
+Release destination: [GitHub v0.1.1](https://github.com/CodeByLiad/Tidyra/releases/tag/v0.1.1).
+
+Signed 0.1.1 installed successfully over production 0.1.0 on the Pixel; version code 2 and all new view/filter controls were observed. Shizuku access is enabled for production. The pre-existing differently signed `.debug` app and its saved trash remain untouched. No phone font, lock, or stay-awake settings were changed.
+
+The sections below document the 0.1.0 foundation and its verification.
 
 ## Product and design
 

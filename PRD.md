@@ -1,6 +1,6 @@
 # Tidyra — Product Requirements
 
-**Owner:** Jinatra · **Status:** v0.1.0 direct-APK release · **Last updated:** 2026-11-16
+**Owner:** Jinatra · **Status:** v0.1.1 direct-APK update · **Last updated:** 2026-11-16
 
 ---
 
@@ -42,6 +42,7 @@ These are testable commitments, not values.
 | Shared-storage scan | One cancellable walk producing categories, large files, empty folders, stale installers, loose files |
 | Duplicate detection | Size → 8 KB edge hash → full SHA-256. Prefer the camera/original location, then the oldest copy within that rank. Unreadable files can never match |
 | App inventory | Per-app app/data/cache size and time since last use; unused-app and cache findings |
+| Running apps and services | Installed / Running / Services views, search, downloaded/system filters, timestamped manual refresh. Shizuku powers live cross-app snapshots and individually confirmed owner-app stops; system and active protected apps remain read-only |
 | Approval gate | Per-finding selection, a plan total that counts overlapping items once, explicit confirmation |
 | Trash | App-owned, with restore, timed purge, and interrupted-copy reconciliation. Uncertain recovery entries require manual review. Trashed and freed reported separately |
 | Organiser | Plan-then-apply filing of loose files into 8 type buckets, with persisted latest-batch undo. Never deletes or overwrites existing files |
@@ -65,6 +66,8 @@ A one-tap clean. A score or rating out of 100. Notifications nagging about stora
 **Organise.** Pick a folder → see the complete planned layout, file by file, before anything moves → apply → undo remains available after closing or restarting. Restore-name collisions receive numbered names.
 
 **AI.** Model screen → pick a model, see its size and whether this phone can run it → download (resumable) → load → findings gain plain-language explanations. Everything works without this step.
+
+**Running apps.** Apps → Running or Services → filter/search → inspect the timestamped snapshot → choose Stop app → confirm that the entire app and all its services will stop → check the refreshed outcome. Individual private-service stopping is restricted by Android. Stopping does not free storage or promise battery improvements. Force stop may interrupt notifications, alarms, syncing and unsaved work. Without Shizuku, installed apps and Android Settings remain available.
 
 ## 6. Constraints that shape the product
 

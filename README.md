@@ -30,6 +30,7 @@ Three things it does that a typical cleaner does not:
 - Folder sizes across shared storage, and inside `Android/media` where chat apps keep their media
 - Duplicate files, proved byte-for-byte: grouped by exact size, then an 8 KB edge hash, then a full SHA-256 — same name and same size is never treated as proof
 - Per-app storage (app / data / cache) and time since you last opened each app
+- Installed / Running / Services views with search and downloaded/system filters. Live running snapshots and individual stop controls use Shizuku; protected/system apps remain available for inspection and Android Settings.
 - Stale installers, empty folders, loose files with no folder of their own, and files over 100 MB
 
 ## What it will not do
@@ -87,13 +88,14 @@ video, protected backups, empty folders, loose files):
 | Folder organiser, plan then apply | persistent undo; collision-safe even after restarting |
 | Interrupted trash operations | reconciled on next access; uncertain recovered files require manual review |
 | Shared-media storage totals | UID-grouped app totals with scanned shared media counted once |
+| Running apps and services | Shizuku snapshots, search and origin filters; confirmed owner-app stop with outcome verification; protected/system apps remain read-only |
 | On-device model download, load, explain | works |
 | Shizuku uninstall and restricted-folder sizes | verified on a Pixel 10 Pro with Android 17; per-app uninstall confirmation |
 | Shizuku cache clearing | times out on that phone; reports failure, preserves app data, and offers Settings |
 
 Unit tests cover the safety rules and the prompt framing: `./gradlew testDebugUnitTest`.
 
-The 16 November release pass includes 53 JVM tests, Android lint, a signed minified
+The 16 November release pass includes 57 JVM tests, Android lint, a signed minified
 release, and opt-in optimized-device checks. The release shrinker is pinned separately
 to R8 9.1.57 for Kotlin 2.4 metadata compatibility. Trash retention can be changed in
 the Trash tab; new settings apply on the next launch. See `RESUME.md` for exact

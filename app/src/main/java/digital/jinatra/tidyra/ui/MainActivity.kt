@@ -34,6 +34,7 @@ import digital.jinatra.tidyra.ui.theme.Module
 class MainActivity : ComponentActivity() {
 
     private val stationModel: StationViewModel by viewModels()
+    private val appsModel: digital.jinatra.tidyra.ui.apps.AppsViewModel by viewModels()
     private val organizeModel: OrganizeViewModel by viewModels()
     private val aiModel: ModelViewModel by viewModels()
 
@@ -60,16 +61,21 @@ class MainActivity : ComponentActivity() {
 
             TidyraTheme(darkTheme = isDark) {
                 val station by stationModel.state.collectAsStateWithLifecycle()
+                val apps by appsModel.state.collectAsStateWithLifecycle()
                 val organize by organizeModel.state.collectAsStateWithLifecycle()
                 val ai by aiModel.state.collectAsStateWithLifecycle()
                 var requestedAction by rememberSaveable { mutableStateOf<Pair<String, Boolean>?>(null) }
 
                 Root(
+                    apps = apps,
                     station = station,
                     organize = organize,
                     model = ai,
                     darkTheme = isDark,
                     callbacks = RootCallbacks(
+                        onRefreshApps = appsModel::refresh,
+                        onStopRuntime = appsModel::stop,
+                        onDismissAppsMessage = appsModel::dismissMessage,
                         onScan = stationModel::scan,
                         onToggleFinding = stationModel::toggleFinding,
                         onToggleItem = stationModel::toggleItem,

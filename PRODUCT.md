@@ -48,6 +48,7 @@ Can do:
 - Move loose files into type-based subfolders, previewing the full layout before anything moves.
 - Request uninstall of user-selected apps through the system package installer.
 - Download, store, select and delete on-device model files; run inference locally.
+- List installed apps without usage access. Browse timestamped running-app and live-service snapshots with Shizuku, search them, and filter all/downloaded/system packages. Individually confirmed stops recheck protection rules at execution and refresh their outcomes. System packages, shared UIDs, active default apps, enabled keyboards, accessibility services, administrators, VPN providers and notification-listener providers are protected from direct stop.
 
 Cannot do without Shizuku (hard Android limits, to be stated plainly in the UI, never worked around):
 - Clear another app's cache. Without Shizuku the app deep-links to the system storage screen for that app.

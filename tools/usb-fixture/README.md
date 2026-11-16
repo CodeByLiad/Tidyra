@@ -39,6 +39,17 @@ dialog interactively. The default suite uninstalls the disposable fixture.
 Do not uninstall an existing Tidyra package to resolve a signing-key mismatch:
 its app-owned trash may contain files that need restoring.
 
+## Running apps and services (0.1.1)
+
+The fixture now starts a private, non-sticky `FixtureService` while its Activity is
+foreground. Install and launch it immediately before running `RuntimeControlTest`
+with `-e tidyra.runtimeFixture true` against the isolated optimized target. The test
+checks process/service discovery, protected-package refusal, cross-package component
+refusal, stopping the service's owner, relaunching, force-stopping the app, and keep-marker
+preservation. Service rows intentionally stop the owning app and all its services:
+shell access cannot reliably stop another app's private service individually.
+No personal app is targeted. The fixture can be uninstalled after testing.
+
 ## Restart recovery
 
 With the optimized target and test APK installed, run `ReleaseRecoveryTest#prepareForRestart`
