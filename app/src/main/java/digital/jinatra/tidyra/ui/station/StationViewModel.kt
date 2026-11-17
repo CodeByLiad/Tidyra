@@ -29,6 +29,11 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.io.File
+import digital.jinatra.tidyra.core.cache.CacheBatch
+import digital.jinatra.tidyra.core.cache.CacheAutomation
+import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.onEach
 
 data class StationState(
     val scanning: Boolean = false,
@@ -54,7 +59,16 @@ data class StationState(
     val retentionDays: Int = 14,
     val message: String? = null,
     val settingsPackage: String? = null,
-    val canClearCache: Boolean = true,
+    val canClearCache: Boolean = false,
+    val selectedCachePackages: Set<String> = emptySet(),
+    val cacheProgress: CacheBatch.Progress? = null,
+    val cacheResults: List<CacheBatch.Item> = emptyList(),
+    val cacheQueue: List<String> = emptyList(),
+    val cacheQueueIndex: Int = 0,
+    val cacheNote: String? = null,
+    val useCacheAutomation: Boolean = false,
+    val cacheAutomationAvailable: Boolean = false,
+    val cacheAutomationProblem: String? = null,
     val restrictedFolders: List<digital.jinatra.tidyra.core.shizuku.RestrictedFolder> = emptyList(),
     val restrictedNote: String? = null,
 ) {
@@ -100,8 +114,16 @@ class StationViewModel(app: Application) : AndroidViewModel(app) {
     val state: StateFlow<StationState> = _state.asStateFlow()
 
     private var scanJob: Job? = null
+    private var cacheJob: Job? = null
 
     init {
+        viewModelScope.launch {
+            CacheAutomation.state.collect { status ->
+                val problem = CacheAutomation.unavailableReason(getApplication())
+                _state.update { it.copy(cacheAutomationAvailable = status.connected, cacheAutomationProblem = problem,
+                    useCacheAutomation = it.useCacheAutomation && problem == null) }
+            }
+        }
         refreshPermissions()
         // Capacity and free space come from StatFs, which needs no permission at all.
         // Showing "0 B free of 0 B" until a scan runs would be a lie the app can avoid.
@@ -234,6 +256,7 @@ class StationViewModel(app: Application) : AndroidViewModel(app) {
                 shizuku = shizuku.state(),
                 aiReady = EngineHolder.isReady,
                 canClearCache = shizuku.canClearCache(),
+                cacheAutomationProblem = CacheAutomation.unavailableReason(getApplication()),
             )
         }
     }
@@ -380,11 +403,137 @@ class StationViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    fun clearCacheWithShizuku(packageName: String) = perform {
-        val result = shizuku.clearCache(packageName)
-        _state.update { it.copy(settingsPackage = if (result.ok) null else packageName, canClearCache = shizuku.canClearCache()) }
-        if (result.ok) "Cache cleared for $packageName. Rescan to update sizes."
-        else "Android did not confirm cache clearing. ${result.stderr.ifBlank { result.stdout }} Open the app's storage settings instead."
+    fun toggleCache(packageName: String, selected: Boolean) {
+        if (_state.value.working || _state.value.scanning) return
+        val app = _state.value.apps.firstOrNull { it.packageName == packageName } ?: return
+        if (app.cacheBlockedReason != null) return
+        _state.update { it.copy(selectedCachePackages = if (selected) it.selectedCachePackages + packageName else it.selectedCachePackages - packageName) }
+    }
+
+    fun selectAllCache(selected: Boolean) {
+        if (_state.value.working || _state.value.scanning) return
+        val visible = _state.value.findings.firstOrNull { it.kind == FindingKind.APP_CACHE }?.items.orEmpty().map { it.path }.toSet()
+        _state.update { it.copy(selectedCachePackages = if (!selected) emptySet() else
+            it.apps.filter { app -> app.packageName in visible && app.cacheBlockedReason == null }.map { app -> app.packageName }.toSet()) }
+    }
+
+    private fun eligibleCachePackages(packages: List<String>): List<String> = packages.distinct().filter { pkg ->
+        _state.value.apps.any { it.packageName == pkg && it.cacheBlockedReason == null }
+    }
+
+    fun clearCaches(packages: List<String>) {
+        if (_state.value.working || _state.value.scanning) return
+        val approved = eligibleCachePackages(packages)
+        if (approved.isEmpty()) return
+        _state.update { it.copy(working = true, cacheResults = emptyList(), cacheNote = null,
+            cacheProgress = CacheBatch.Progress(null, approved.size, emptyList())) }
+        cacheJob = viewModelScope.launch {
+            try {
+                val results = CacheBatch.run(approved, shizuku::canClearCache, { pkg ->
+                    val result = shizuku.clearCache(pkg)
+                    CacheBatch.Item(pkg, if (result.ok) CacheBatch.Status.CONFIRMED else CacheBatch.Status.FAILED,
+                        if (result.ok) "Cache clearing confirmed" else result.stderr.ifBlank { result.stdout }.take(240))
+                }) { progress -> _state.update { it.copy(cacheProgress = progress, cacheResults = progress.results) } }
+                _state.update { it.copy(cacheResults = results, cacheNote = "${results.count { r -> r.status == CacheBatch.Status.CONFIRMED }} of ${approved.size} confirmed by Android.") }
+            } catch (cancelled: CancellationException) {
+                _state.update { current ->
+                    val completed = current.cacheResults.map { it.packageName }.toSet()
+                    current.copy(cacheResults = current.cacheResults + approved.filterNot { it in completed }.map {
+                        CacheBatch.Item(it, CacheBatch.Status.NOT_ATTEMPTED, "Not confirmed after cancellation") },
+                        cacheNote = "Stopped requesting apps. An operation already sent to Android may still finish.")
+                }
+                throw cancelled
+            } catch (error: Exception) {
+                _state.update { it.copy(cacheNote = "Stopped: ${error.message.orEmpty()}. Unconfirmed apps can be reviewed in Settings.") }
+            } finally {
+                kotlinx.coroutines.withContext(kotlinx.coroutines.NonCancellable) {
+                    refreshCacheMeasurements(approved.toSet())
+                    _state.update { it.copy(working = false, cacheProgress = null, canClearCache = shizuku.canClearCache()) }
+                }
+            }
+        }
+    }
+
+    fun cancelCache() { cacheJob?.cancel() }
+
+    fun useCacheAutomation(enabled: Boolean) {
+        if (!_state.value.working && !_state.value.scanning) _state.update { it.copy(useCacheAutomation = enabled,
+            cacheAutomationProblem = CacheAutomation.unavailableReason(getApplication())) }
+    }
+
+    fun clearCachesViaAccessibility(packages: List<String>) {
+        if (_state.value.working || _state.value.scanning) return
+        val approved = eligibleCachePackages(packages)
+        if (approved.isEmpty()) return
+        _state.update { it.copy(working = true, cacheResults = emptyList(), cacheNote = null,
+            cacheProgress = CacheBatch.Progress(null, approved.size, emptyList())) }
+        cacheJob = viewModelScope.launch {
+            var runId: Long? = null
+            try {
+                runId = CacheAutomation.start(approved) ?: error("Enable Tidyra cache assistant in Accessibility first")
+                CacheAutomation.state.filter { it.runId == runId }.onEach { status ->
+                    _state.update { it.copy(cacheProgress = CacheBatch.Progress(status.current, status.total, status.results),
+                        cacheResults = status.results, cacheNote = status.note) }
+                }.first { !it.running }
+            } catch (cancelled: CancellationException) {
+                _state.update { current -> current.copy(cacheNote = "Cancelled. A request already sent may still finish.",
+                    cacheResults = current.cacheResults + approved.filterNot { pkg -> current.cacheResults.any { it.packageName == pkg } }
+                        .map { CacheBatch.Item(it, CacheBatch.Status.NOT_ATTEMPTED, "Not confirmed after cancellation") }) }
+                throw cancelled
+            } catch (error: Exception) {
+                _state.update { it.copy(cacheNote = "Automation stopped: ${error.message.orEmpty()}. Use the manual Settings queue.") }
+            } finally {
+                runId?.let(CacheAutomation::cancel)
+                kotlinx.coroutines.withContext(kotlinx.coroutines.NonCancellable) {
+                    refreshCacheMeasurements(approved.toSet())
+                    _state.update { it.copy(working = false, cacheProgress = null) }
+                }
+            }
+        }
+    }
+
+    /** A queue opens Settings only on explicit Next; visiting Settings never means cache was cleared. */
+    fun startCacheSettings(packages: List<String>): String? {
+        if (_state.value.working || _state.value.scanning) return null
+        val approved = eligibleCachePackages(packages)
+        if (approved.isEmpty()) return null
+        _state.update { it.copy(working = true, cacheQueue = approved, cacheQueueIndex = 0,
+            cacheResults = emptyList(), cacheNote = null) }
+        return approved.first()
+    }
+
+    fun nextCacheSettings(): String? {
+        val current = _state.value
+        if (current.cacheQueue.isEmpty()) return null
+        val next = current.cacheQueueIndex + 1
+        if (next >= current.cacheQueue.size) { finishCacheSettings(); return null }
+        _state.update { it.copy(cacheQueueIndex = next) }
+        return current.cacheQueue[next]
+    }
+
+    fun finishCacheSettings() {
+        val packages = _state.value.cacheQueue
+        if (packages.isEmpty()) return
+        _state.update { it.copy(cacheQueue = emptyList(), cacheNote = "Settings review ended. Tidyra cannot verify which caches you cleared.") }
+        cacheJob = viewModelScope.launch {
+            try { refreshCacheMeasurements(packages.toSet()) }
+            finally { _state.update { it.copy(working = false) } }
+        }
+    }
+
+    private suspend fun refreshCacheMeasurements(packages: Set<String>) {
+        runCatching { inventory.load(packages) }.onSuccess { measured ->
+            val updated = measured.associateBy { it.packageName }
+            _state.update { current ->
+                val apps = current.apps.map { updated[it.packageName] ?: it }
+                val findings = current.findings.filterNot { it.kind == FindingKind.APP_CACHE }.toMutableList()
+                inventory.cacheFinding(apps)?.let(findings::add)
+                val visible = findings.firstOrNull { it.kind == FindingKind.APP_CACHE }?.items.orEmpty().map { it.path }.toSet()
+                current.copy(apps = apps, findings = findings.sortedByDescending { it.frees.value },
+                    selectedCachePackages = current.selectedCachePackages.intersect(visible),
+                    containers = buildContainers(current.snapshot, apps, findings, current.selectedItems))
+            }
+        }
     }
 
     fun uninstallWithShizuku(packageName: String) = perform {

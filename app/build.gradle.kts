@@ -21,8 +21,8 @@ android {
         applicationId = "digital.jinatra.tidyra"
         minSdk = 30
         targetSdk = 36
-        versionCode = 3
-        versionName = "0.1.2"
+        versionCode = 4
+        versionName = "0.1.3"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         manifestPlaceholders["tidyraLabel"] = "@string/app_name"
         vectorDrawables.useSupportLibrary = true
@@ -39,6 +39,7 @@ android {
             applicationIdSuffix = ".usbtest"
             versionNameSuffix = "-usbtest"
             resValue("string", "usb_test_app_name", "Tidyra USB Test")
+            resValue("string", "cache_accessibility_name", "Tidyra USB Test cache assistant")
             manifestPlaceholders["tidyraLabel"] = "@string/usb_test_app_name"
             matchingFallbacks += listOf("debug")
         }
@@ -64,6 +65,7 @@ android {
         versionNameSuffix = "-usbtest-release"
         signingConfig = signingConfigs.getByName("debug")
         resValue("string", "usb_test_app_name", "Tidyra USB Test")
+        resValue("string", "cache_accessibility_name", "Tidyra USB Test cache assistant")
         manifestPlaceholders["tidyraLabel"] = "@string/usb_test_app_name"
         matchingFallbacks += listOf("release")
     }

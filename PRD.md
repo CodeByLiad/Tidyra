@@ -46,7 +46,7 @@ These are testable commitments, not values.
 | Approval gate | Per-finding selection, a plan total that counts overlapping items once, explicit confirmation |
 | Trash | App-owned, with restore, timed purge, and interrupted-copy reconciliation. Uncertain recovery entries require manual review. Trashed and freed reported separately |
 | Organiser | Image thumbnails and larger previews; explicit selection; suggested type folders with individual/bulk destination choice and new-folder creation; final From/To review before Move; persisted latest-batch undo. Never deletes or overwrites existing files |
-| Shizuku mode | Cache trim, restricted-directory reads, uninstall — all optional, all degrading cleanly |
+| Shizuku mode | Permission-checked selected cache batches, restricted-directory reads, uninstall — optional, with manual Settings queue and separately enabled Settings-only Accessibility automation for cache fallback |
 | On-device AI | In-app model catalogue, resumable download, load/unload, explanation of findings |
 
 ### Out, for now
@@ -75,7 +75,7 @@ A one-tap clean. A score or rating out of 100. Notifications nagging about stora
 |---|---|
 | No recycle bin on Android | The app keeps its own trash; "undo" has to be built, not promised |
 | `Android/data` unreadable since Android 11 | Chat-app media in `Android/data` is invisible without Shizuku; `Android/media` is readable |
-| Only the system can clear another app's cache | Cache-only clearing requires Shizuku and OS support; timeout/unsupported capability is remembered for that system build and falls back to Storage Settings |
+| Only privileged callers can clear another app's cache | Check Shizuku's INTERNAL_DELETE_CACHE_FILES permission before starting a cache command. Explicit app selection supports batches, progress and cancellation where permitted; otherwise use a guided Settings queue. Unsupported/timeout capability is scoped to the OS build and backend UID. Never clear app data or globally trim unselected caches. |
 | `MANAGE_EXTERNAL_STORAGE` is manually reviewed on Play | F-Droid and direct APK are the distribution path; Play is not a v1 target |
 | MediaPipe ships prebuilt `.so` files | May conflict with F-Droid's build-from-source policy. `LlmEngine` is an interface so a llama.cpp-from-source backend can replace it without touching the UI |
 

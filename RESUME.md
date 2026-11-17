@@ -1,6 +1,69 @@
 # Resume Tidyra here
 
-Checkpoint: 2026-11-16. Release 0.1.2 fixes image identification and destination choice in Organise; minimum Android 11, compile/target SDK 36. Earlier releases remain intact.
+Checkpoint: 2026-11-17. Release 0.1.3 adds cache selection, bounded commands, manual review and optional Settings automation. Minimum Android 11, compile/target SDK 36.
+
+## 0.1.3 cache review and optional automation
+
+Checkpoint: 2026-11-17. Version code 4. Adds independent cache selection, explicit
+batch confirmation, current-app progress, cancellation, persistent per-app outcomes,
+and selected-package-only measurement refresh. No cache request enters file trash;
+no app-data clearing or global trim fallback exists. Cache and uninstall policies
+are separate, allowing ordinary system apps such as Chrome to be reviewed while
+protecting core/persistent/shared-UID packages and Tidyra/Shizuku.
+
+Root cause: AOSP PackageManagerService silently ignores callers that hold legacy
+DELETE_CACHE_FILES but lack INTERNAL_DELETE_CACHE_FILES. PackageManagerShellCommand
+then waits for an observer that is never notified. Shizuku now checks the remote
+permission before issuing a cache command. Build fingerprint plus backend UID scopes
+learned failures, permitting a switch from shell to a genuinely supported backend.
+Cache help is validated before --cache-only can run. Cache calls use bounded 5-second
+help/8-second action waits; the shared runner drains capped output on daemon readers
+and never awaits an inherited pipe indefinitely. Cancellation stops new requests;
+an operation already accepted by Android may still finish.
+
+Manual fallback is a selected-app Settings queue with Reopen, Next/Finish and End
+review. It uses Android's exported APP_STORAGE_SETTINGS route when available, with
+app details fallback. Visiting Settings never means a cache was cleared. Optional
+Automate Settings has a disclosure, separately enabled Accessibility permission and
+batch confirmation. Its service filters events to com.android.settings, remains
+idle outside an explicitly started in-memory session, shows a Cancel overlay,
+requires the native entity_header_title matching a unique installed-app label and
+the exact localized button2/action2 Clear cache control, and never clicks coordinates,
+Clear storage, generic dialog buttons or unrecognized controls. Unsupported layouts,
+languages lacking the cache label, duplicate app labels and unknown identities fail
+to manual review. Screen contents are not stored or sent. Accessibility button
+requests use REQUESTED outcomes, separately from Android-confirmed Shizuku results.
+
+82 JVM tests and Android lint pass without errors. Final optimized accessibility
+checks passed on both API 36 emulator and API 37 Pixel (three executed, one
+platform-specific case skipped per device). The emulator actually removed both
+selected fixture caches while preserving internal/external keep markers. The Pixel
+hides native cache actions from this non-disability automation service: its separate
+test verifies no cache/data mutation, learned unavailability and immediate repeat
+fallback. This is a verified manual fallback, not successful automatic Pixel clearing.
+Detection is scoped to OS fingerprint, app version, Settings version and language;
+explicit consent can retry it. Never misdeclare isAccessibilityTool=true to bypass
+sensitive-view restrictions. Evidence: build/cache-verify-usbRelease-emulator-5554.txt
+and build/cache-verify-usbRelease-5A241FDCH0001C.txt.
+
+Final optimized Pixel Shizuku checks passed (six executed, one optional system
+uninstall-dialog case skipped), including immediate permission denial, a bounded
+remote timeout, protected targets, preserved keep markers, restricted measurement
+and fixture uninstall. Evidence: build/cache-release-shizuku-pixel.txt. The signed
+production APK installed in place and cold-launched as 0.1.3, preserving production
+data. No pre-existing .debug app or its saved trash was modified or uninstalled. Certificate remains
+570253ffec64c5f15ee193b42e9d64b86c2ec37945f23c0c5b50200524da5311.
+
+Cache selection, manual queue, consent, dark theme and larger text were checked on
+the emulator. Detail navigation survives configuration changes; switch contrast was
+confirmed in light and dark themes. All testing cache mutations target disposable digital.jinatra.usbfixture
+and .peer only. QA accessibility grants are removed after each native test while
+preserving other enabled services. The Pixel's verified generated Organise images
+were removed after comparing canonical paths, markers and SHA-256. Its modified
+56-byte .nomedia was preserved with the identifying marker under
+Pictures/Tidyra-Organise-QA-20261116; no personal pictures were removed.
+
+Release target: https://github.com/CodeByLiad/Tidyra/releases/tag/v0.1.3.
 
 ## 0.1.2 image and destination review
 

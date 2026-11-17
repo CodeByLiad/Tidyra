@@ -175,8 +175,8 @@ private fun RuntimeRow(
             }
         } else {
             TextButton(onClick = { onSettings(app.packageName) }, enabled = !busy) { Text("APP SETTINGS", style = type.stencil) }
-            if (stats != null && stats.cacheBytes.value > 0) TextButton(onClick = { onClearCache(app.packageName) }, enabled = !busy && !app.isSystem) {
-                Text(if (canClearCache && shizuku == ShizukuBridge.State.READY) "CACHE ${Format.size(stats.cacheBytes)}" else "STORAGE SETTINGS", style = type.stencil)
+            if (stats != null && stats.cacheBytes.value > 0) TextButton(onClick = { onClearCache(app.packageName) }, enabled = !busy) {
+                Text(if (canClearCache && stats.cacheBlockedReason == null && shizuku == ShizukuBridge.State.READY) "CACHE ${Format.size(stats.cacheBytes)}" else "STORAGE SETTINGS", style = type.stencil)
             }
             if (!Protected.isProtectedPackage(app.packageName, app.isSystem)) TextButton(onClick = { onUninstall(app.packageName) }, enabled = !busy) { Text("UNINSTALL", style = type.stencil) }
         }

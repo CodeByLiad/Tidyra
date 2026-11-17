@@ -91,10 +91,10 @@ fun Root(
     callbacks: RootCallbacks,
 ) {
     var section by rememberSaveable { mutableStateOf(Section.STORAGE) }
-    var openFinding by remember { mutableStateOf<String?>(null) }
+    var openFinding by rememberSaveable { mutableStateOf<String?>(null) }
     // Hoisted so returning from a detail screen lands where the user left, not at the top.
     val storageScroll = rememberLazyListState()
-    var openCategory by remember { mutableStateOf<StorageCategory?>(null) }
+    var openCategory by rememberSaveable { mutableStateOf<StorageCategory?>(null) }
     val colors = MaterialTheme.colorScheme
     val snackbar = remember { SnackbarHostState() }
     LaunchedEffect(apps.message) {
@@ -113,7 +113,11 @@ fun Root(
     }
 
     val finding = station.findings.firstOrNull { it.id == openFinding }
-    val detailOpen = finding != null || openCategory != null
+    val cacheOpen = openFinding == "app-cache"
+    LaunchedEffect(station.cacheQueue, station.cacheProgress != null) {
+        if (station.cacheQueue.isNotEmpty() || station.cacheProgress != null) openFinding = "app-cache"
+    }
+    val detailOpen = cacheOpen || finding != null || openCategory != null
 
     BackHandler(enabled = detailOpen) {
         openFinding = null
@@ -138,7 +142,13 @@ fun Root(
                     .weight(1f)
                     .statusBarsPadding(),
             ) {
-            if (finding != null) {
+            if (cacheOpen) {
+                digital.jinatra.tidyra.ui.detail.CacheDetailScreen(station,
+                    callbacks.onToggleCache, callbacks.onSelectAllCache, callbacks.onRequestCaches,
+                    callbacks.onCancelCache, callbacks.onNextCacheSettings, callbacks.onEndCacheSettings,
+                    callbacks.onOpenCacheSettings, callbacks.onConfigureCacheAutomation, callbacks.onUseManualCache,
+                    onBack = { openFinding = null }, modifier = Modifier.weight(1f))
+            } else if (finding != null) {
                 FindingDetailScreen(
                     finding = finding,
                     selectedItems = station.selectedItems,
@@ -177,7 +187,7 @@ fun Root(
                 )
             }
             }
-            ApprovalFooter(station, callbacks)
+            if (!cacheOpen) ApprovalFooter(station, callbacks)
             return@Column
         }
 
@@ -453,6 +463,15 @@ data class RootCallbacks(
     val onUninstall: (String) -> Unit,
     val onOpenAppSettings: (String) -> Unit,
     val onClearCache: (String) -> Unit,
+    val onToggleCache: (String, Boolean) -> Unit,
+    val onSelectAllCache: (Boolean) -> Unit,
+    val onRequestCaches: (List<String>) -> Unit,
+    val onCancelCache: () -> Unit,
+    val onNextCacheSettings: () -> Unit,
+    val onEndCacheSettings: () -> Unit,
+    val onOpenCacheSettings: (String) -> Unit,
+    val onConfigureCacheAutomation: () -> Unit,
+    val onUseManualCache: () -> Unit,
     val onRetentionDays: (Int) -> Unit,
     val onDismissMessage: () -> Unit,
     val onSelectFolder: (java.io.File) -> Unit,

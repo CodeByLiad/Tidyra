@@ -30,6 +30,7 @@ import androidx.compose.runtime.SideEffect
 import androidx.core.view.WindowCompat
 import androidx.compose.foundation.shape.RoundedCornerShape
 import digital.jinatra.tidyra.ui.theme.Module
+import digital.jinatra.tidyra.core.cache.CacheAutomation
 
 class MainActivity : ComponentActivity() {
 
@@ -64,7 +65,9 @@ class MainActivity : ComponentActivity() {
                 val apps by appsModel.state.collectAsStateWithLifecycle()
                 val organize by organizeModel.state.collectAsStateWithLifecycle()
                 val ai by aiModel.state.collectAsStateWithLifecycle()
-                var requestedAction by rememberSaveable { mutableStateOf<Pair<String, Boolean>?>(null) }
+                var requestedAction by rememberSaveable { mutableStateOf<String?>(null) }
+                var requestedCaches by rememberSaveable { mutableStateOf<ArrayList<String>?>(null) }
+                var cacheAutomationConsent by rememberSaveable { mutableStateOf(false) }
 
                 Root(
                     apps = apps,
@@ -91,14 +94,27 @@ class MainActivity : ComponentActivity() {
                         onGrantAllFiles = ::requestAllFilesAccess,
                         onGrantUsage = ::requestUsageAccess,
                         onUninstall = { pkg ->
-                            if (station.shizuku == ShizukuBridge.State.READY) requestedAction = pkg to true
-                            else uninstall(pkg)
+                            if (!station.working && !station.scanning) {
+                                if (station.shizuku == ShizukuBridge.State.READY) requestedAction = pkg
+                                else uninstall(pkg)
+                            }
                         },
                         onOpenAppSettings = ::openAppSettings,
                         onClearCache = { pkg ->
-                            if (station.shizuku == ShizukuBridge.State.READY && station.canClearCache) requestedAction = pkg to false
-                            else openAppSettings(pkg)
+                            if (!station.working && !station.scanning) {
+                                if (station.apps.firstOrNull { it.packageName == pkg }?.cacheBlockedReason != null) openAppSettings(pkg)
+                                else requestedCaches = arrayListOf(pkg)
+                            }
                         },
+                        onToggleCache = stationModel::toggleCache,
+                        onSelectAllCache = stationModel::selectAllCache,
+                        onRequestCaches = { if (!station.working && !station.scanning && it.isNotEmpty()) requestedCaches = ArrayList(it) },
+                        onCancelCache = stationModel::cancelCache,
+                        onNextCacheSettings = { stationModel.nextCacheSettings()?.let(::openCacheSettings) },
+                        onEndCacheSettings = stationModel::finishCacheSettings,
+                        onOpenCacheSettings = ::openCacheSettings,
+                        onConfigureCacheAutomation = { cacheAutomationConsent = true },
+                        onUseManualCache = { stationModel.useCacheAutomation(false) },
                         onRetentionDays = stationModel::setRetentionDays,
                         onDismissMessage = stationModel::dismissMessage,
                         onSelectFolder = organizeModel::select,
@@ -123,24 +139,59 @@ class MainActivity : ComponentActivity() {
                         onImportModel = { pickModelFile.launch(arrayOf("*/*")) },
                     ),
                 )
-                requestedAction?.let { (pkg, removing) ->
+                requestedAction?.let { pkg ->
                     val name = station.apps.firstOrNull { it.packageName == pkg }?.label ?: pkg
                     AlertDialog(
                         shape = RoundedCornerShape(Module.half),
                         onDismissRequest = { requestedAction = null },
-                        title = { Text(if (removing) "Uninstall $name?" else "Clear cache for $name?") },
-                        text = { Text(if (removing)
-                            "$pkg and its app data will be removed using Shizuku. This bypasses Android's uninstall dialog and cannot be undone through Tidyra's trash."
-                            else "$pkg will lose only its temporary cache. It may load more slowly next time. App data and logins stay. If cache-only clearing is unsupported, nothing will be cleared.") },
+                        title = { Text("Uninstall $name?") },
+                        text = { Text("$pkg and its app data will be removed using Shizuku. This bypasses Android's uninstall dialog and cannot be undone through Tidyra's trash.") },
                         confirmButton = {
                             TextButton(enabled = !station.working && !station.scanning, onClick = {
                                 requestedAction = null
-                                if (removing) stationModel.uninstallWithShizuku(pkg) else stationModel.clearCacheWithShizuku(pkg)
-                            }) { Text(if (removing) "UNINSTALL" else "CLEAR CACHE") }
+                                stationModel.uninstallWithShizuku(pkg)
+                            }) { Text("UNINSTALL") }
                         },
                         dismissButton = { TextButton(onClick = { requestedAction = null }) { Text("CANCEL") } },
                     )
                 }
+                requestedCaches?.let { packages ->
+                    val automatic = station.canClearCache || (station.useCacheAutomation && station.cacheAutomationAvailable && station.cacheAutomationProblem == null)
+                    val names = packages.take(4).joinToString(", ") { pkg -> station.apps.firstOrNull { it.packageName == pkg }?.label ?: pkg }
+                    val summary = names + if (packages.size > 4) " and ${packages.size - 4} more" else ""
+                    AlertDialog(
+                        shape = RoundedCornerShape(Module.half),
+                        onDismissRequest = { requestedCaches = null },
+                        title = { Text(if (automatic) "Clear cache in ${packages.size} ${if (packages.size == 1) "app" else "apps"}?" else "Review ${packages.size} ${if (packages.size == 1) "app" else "apps"} in Settings?") },
+                        text = { Text(if (automatic)
+                            "$summary. Only temporary cache will be requested for clearing. App data and logins stay. You can cancel remaining requests." +
+                                if (!station.canClearCache) " Android Settings will open, with a visible Cancel control. Unrecognized screens are left for manual review." else ""
+                            else "$summary. Android does not allow automatic cache clearing on this setup. In each app's Storage & cache screen, tap Clear cache, then return to Tidyra for the next app. Avoid Clear storage; it removes app data.") },
+                        confirmButton = {
+                            TextButton(enabled = !station.working && !station.scanning, onClick = {
+                                requestedCaches = null
+                                if (stationModel.shizuku.canClearCache()) stationModel.clearCaches(packages)
+                                else if (station.useCacheAutomation && CacheAutomation.state.value.connected && CacheAutomation.unavailableReason(this@MainActivity) == null) stationModel.clearCachesViaAccessibility(packages)
+                                else stationModel.startCacheSettings(packages)?.let(::openCacheSettings)
+                            }) { Text(if (automatic) "Clear cache" else "Open settings") }
+                        },
+                        dismissButton = { TextButton(onClick = { requestedCaches = null }) { Text("Cancel") } },
+                    )
+                }
+                if (cacheAutomationConsent) AlertDialog(
+                    shape = RoundedCornerShape(Module.half),
+                    onDismissRequest = { cacheAutomationConsent = false },
+                    title = { Text("Automate Clear cache?") },
+                    text = { Text("Optional Accessibility access lets Tidyra read Android Settings screens and tap Clear cache for the apps you select and confirm. It does not read inside your apps, tap Clear storage, accept unknown dialogs, or save or send screen content. A visible Cancel control stops remaining requests. Unsupported layouts or ambiguous app names stay manual. You can disable access anytime in Android Accessibility settings.") },
+                    confirmButton = { TextButton(onClick = {
+                        cacheAutomationConsent = false
+                        CacheAutomation.resetUnsupported(this@MainActivity)
+                        stationModel.useCacheAutomation(true)
+                        if (!CacheAutomation.state.value.connected) runCatching { startActivity(CacheAutomation.permissionIntent(this@MainActivity)) }
+                            .onFailure { runCatching { startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) } }
+                    }) { Text(if (station.cacheAutomationAvailable) "Use automation" else "Enable in Settings") } },
+                    dismissButton = { TextButton(onClick = { cacheAutomationConsent = false }) { Text("Cancel") } },
+                )
             }
         }
     }
@@ -211,5 +262,10 @@ class MainActivity : ComponentActivity() {
                 ),
             )
         }
+    }
+
+    private fun openCacheSettings(packageName: String) {
+        runCatching { startActivity(CacheAutomation.storageIntent(this, packageName).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+            .onFailure { openAppSettings(packageName) }
     }
 }

@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Tidyra</string>
+    <string name="cache_accessibility_name">Tidyra cache assistant</string>
+    <string name="cache_accessibility_description">Optional cache automation. After you select and confirm apps in Tidyra, this service reads only Android Settings screens and taps their Clear cache button. It never taps Clear storage, accepts unknown dialogs, or reads content inside your apps. A visible Cancel control stops remaining requests. No screen content is saved or sent. Disable this service here whenever you want.</string>
 </resources>

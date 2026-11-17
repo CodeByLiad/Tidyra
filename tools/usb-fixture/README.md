@@ -72,3 +72,27 @@ smoke test, not a claim about answer quality or every supported model/device.
 The release tests use a small continuation/latch bridge so they do not depend on
 coroutine facade classes removed from the target by optimization. Public tested API
 boundaries and the Kotlin runtime are retained across the separate test APK.
+
+## Optional Settings automation (0.1.3)
+
+`CacheAutomationTest` requires `tidyra.accessibilityFixture=true`, the isolated
+`.usbtest` package, and both disposable fixture packages. Build the second fixture
+with `./gradlew -p tools/usb-fixture assembleCachePeer`; its package is
+`digital.jinatra.usbfixture.peer` and label is `Tidyra Cache Peer`. Launch both
+fixtures before testing so each creates cache plus internal/external keep markers.
+
+The test uses UI automation with `FLAG_DONT_SUPPRESS_ACCESSIBILITY_SERVICES`,
+rebinds only the isolated Tidyra cache service using adopted shell permission, and
+removes that test grant after each method. Existing enabled services are preserved.
+It checks protected targets, a two-app batch with duplicate selection, preserved
+markers after actual cache removal, and immediate cancellation before any click.
+Never grant special access to a production package or target personal apps in this
+suite. Do not run `uiautomator dump` during an active batch: its default automation
+connection suppresses accessibility services and would interrupt the test.
+
+On the tested Pixel Android 17 build, native cache actions are hidden from this
+non-disability automation service. Pass `-e tidyra.expectCacheAutomation manual`:
+the clearing test is skipped and a dedicated test requires detected unavailability,
+an immediate repeat fallback, and unchanged cache plus keep markers. On supported
+devices omit that argument: actual two-fixture cache removal must pass. These are
+distinct outcomes; a successful manual-fallback test is not automatic cache clearing.

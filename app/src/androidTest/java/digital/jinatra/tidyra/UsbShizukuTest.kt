@@ -46,13 +46,28 @@ class UsbShizukuTest {
             result.folders.any { it.path.endsWith("/Android/data/$FIXTURE") && it.size.value > 0 })
     }
 
+    @Test fun a_remoteTimeoutIsBounded() = deviceTest {
+        val started = System.currentTimeMillis()
+        val result = bridge.execWithTimeout(200, "sh", "-c", "sleep 5")
+        assertFalse(result.ok)
+        assertTrue(result.stderr, result.stderr.contains("timed out"))
+        assertTrue("Timeout must not await blocked output streams", System.currentTimeMillis() - started < 3000)
+    }
+
     @Test fun c_cacheClearNeverRemovesAppData() = deviceTest {
         requireFixture()
         val before = bridge.exec("run-as", FIXTURE, "cat", "files/keep.txt")
         assertTrue(before.stderr, before.ok)
         assertEquals(MARKER, before.stdout)
         assertTrue("Fixture cache must exist before clearing", bridge.exec("run-as", FIXTURE, "ls", "cache/disposable-cache.dat").ok)
+        val directAvailable = bridge.canClearCache()
+        val startedClear = System.currentTimeMillis()
         val clear = bridge.clearCache(FIXTURE)
+        if (!directAvailable) {
+            assertFalse(clear.ok)
+            assertTrue("Missing permission must be rejected immediately, before cmd can hang", System.currentTimeMillis() - startedClear < 3000)
+            assertTrue("Permission denial must preserve cache as well as app data", bridge.exec("run-as", FIXTURE, "ls", "cache/disposable-cache.dat").ok)
+        }
         if (clear.ok) {
             assertFalse("Cache remained after clearing", bridge.exec("run-as", FIXTURE, "ls", "cache/disposable-cache.dat").ok)
         } else {

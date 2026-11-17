@@ -35,6 +35,7 @@
 -keep,allowoptimization class digital.jinatra.tidyra.core.shizuku.ShizukuBridge$* { public *; }
 -keep,allowoptimization class digital.jinatra.tidyra.core.shizuku.RestrictedFolder { public *; }
 -keep,allowoptimization class digital.jinatra.tidyra.core.runtime.** { public *; }
+-keep,allowoptimization class digital.jinatra.tidyra.core.cache.** { public *; }
 -keep,allowoptimization class digital.jinatra.tidyra.core.preview.LocalImageDecoder { public *; }
 -keep,allowoptimization class digital.jinatra.tidyra.ai.MediaPipeLlmEngine { public *; }
 -keep,allowoptimization class digital.jinatra.tidyra.ai.PromptTemplate { public *; }

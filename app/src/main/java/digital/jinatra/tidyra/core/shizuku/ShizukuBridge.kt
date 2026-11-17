@@ -2,8 +2,8 @@ package digital.jinatra.tidyra.core.shizuku
 
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import kotlinx.coroutines.async
-import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.isActive
 import android.content.Context
 import android.content.pm.ApplicationInfo
 import android.os.Process as AndroidProcess
@@ -12,7 +12,7 @@ import digital.jinatra.tidyra.core.safety.Protected
 import java.util.concurrent.TimeUnit
 import rikka.shizuku.Shizuku
 import rikka.shizuku.ShizukuRemoteProcess
-import java.io.BufferedReader
+import digital.jinatra.tidyra.core.cache.CachePolicy
 
 /**
  * Optional ADB-level access.
@@ -25,8 +25,15 @@ import java.io.BufferedReader
  */
 class ShizukuBridge(private val context: Context) {
     private val capabilities = context.getSharedPreferences("shizuku_capabilities", Context.MODE_PRIVATE)
-    fun canClearCache(): Boolean = capabilities.getString("cache_unavailable_build", null) != Build.FINGERPRINT
-    private fun markCacheUnavailable() { capabilities.edit().putString("cache_unavailable_build", Build.FINGERPRINT).apply() }
+    private fun backendKey() = "${Build.FINGERPRINT}:${runCatching { Shizuku.getUid() }.getOrDefault(-1)}"
+    fun canClearCache(): Boolean = state() == State.READY && runCatching {
+        Shizuku.checkRemotePermission("android.permission.INTERNAL_DELETE_CACHE_FILES") == 0 &&
+            capabilities.getString("cache_unavailable_backend", null) != backendKey()
+    }.getOrDefault(false)
+    private fun markCacheUnavailable() {
+        capabilities.edit().putString("cache_unavailable_backend", backendKey()).apply()
+    }
+    private var validatedCacheBackend: String? = null
     // Android assigns each profile a block of 100,000 UIDs. Stay in the caller's profile.
     private val userId get() = (AndroidProcess.myUid() / 100_000).toString()
 
@@ -69,10 +76,13 @@ class ShizukuBridge(private val context: Context) {
      * been stable for years, but a failure here is reported as a failed command rather
      * than crashing the app.
      */
-    suspend fun exec(vararg command: String): ShellResult = withContext(Dispatchers.IO) {
+    suspend fun exec(vararg command: String): ShellResult = execWithTimeout(30_000, *command)
+
+    suspend fun execWithTimeout(timeoutMillis: Long, vararg command: String): ShellResult = withContext(Dispatchers.IO) {
         if (state() != State.READY) {
             return@withContext ShellResult(-1, "", "Shizuku is not ready")
         }
+        val caller = currentCoroutineContext()
         runCatching {
             val method = Shizuku::class.java.getDeclaredMethod(
                 "newProcess",
@@ -83,38 +93,44 @@ class ShizukuBridge(private val context: Context) {
 
             @Suppress("UNCHECKED_CAST")
             val process = method.invoke(null, arrayOf(*command), null, null) as ShizukuRemoteProcess
-            coroutineScope {
-                val out = async(Dispatchers.IO) { process.inputStream.bufferedReader().use(BufferedReader::readText) }
-                val err = async(Dispatchers.IO) { process.errorStream.bufferedReader().use(BufferedReader::readText) }
-                try {
-                    // Process.waitFor(timeout) uses local process state on Android. Shizuku
-                    // exposes its own Binder-backed wait; using the inherited one can return
-                    // before the remote process exits and then make exitValue() throw.
-                    if (!process.waitForTimeout(30, TimeUnit.SECONDS)) {
-                        process.destroy()
-                        ShellResult(-1, out.await(), "Shizuku command timed out. ${err.await()}")
-                    } else ShellResult(process.exitValue(), out.await(), err.await())
-                } finally { process.destroy() }
-            }
+            val result = CommandRunner.run(object : CommandRunner.Process {
+                override val stdout get() = process.inputStream
+                override val stderr get() = process.errorStream
+                override fun waitFor(millis: Long) = process.waitForTimeout(millis, TimeUnit.MILLISECONDS)
+                override fun exitCode() = process.exitValue()
+                override fun destroy() = process.destroy()
+            }, timeoutMillis, cancelled = { !caller.isActive })
+            ShellResult(result.code, result.out, result.error)
         }.getOrElse { error ->
             ShellResult(-1, "", error.message ?: error::class.java.simpleName)
         }
     }
 
-    suspend fun clearCache(packageName: String): ShellResult {
-        if (!allowedPackage(packageName)) return ShellResult(-1, "", "This package is protected or unavailable")
-        if (!canClearCache()) return ShellResult(-1, "", "Cache-only clearing did not complete on this Android build. Use the app's storage settings.")
+    suspend fun clearCache(packageName: String): ShellResult = withContext(Dispatchers.IO) {
+        val reason = runCatching {
+            val pm = context.packageManager
+            val info = pm.getApplicationInfo(packageName, 0)
+            CachePolicy.blockedReason(packageName, info.uid, info.flags and ApplicationInfo.FLAG_PERSISTENT != 0,
+                pm.getPackagesForUid(info.uid).orEmpty().size > 1)
+        }.getOrElse { "App unavailable" }
+        if (reason != null) return@withContext ShellResult(-1, "", reason)
+        // AOSP silently ignores shell callers missing this permission, leaving cmd waiting forever.
+        if (!canClearCache()) return@withContext ShellResult(-1, "", "Android requires clearing cache in Settings on this Shizuku setup")
         // Old Android releases can ignore unknown flags. Never risk clearing app data.
-        val help = exec("cmd", "package", "help")
+        val help = if (validatedCacheBackend == backendKey()) ShellResult(0, "clear [--cache-only]", "")
+            else execWithTimeout(5_000, "cmd", "package", "help")
         if (!help.ok || !Regex("clear[^\\n]*\\[--cache-only\\]").containsMatchIn(help.stdout)) {
-            if (help.ok) markCacheUnavailable()
-            return ShellResult(-1, "", "This Android version does not advertise cache-only clearing")
+            if (help.ok || help.stderr.contains("timed out", true)) markCacheUnavailable()
+            return@withContext ShellResult(-1, "", "Cache-only clearing could not be verified; use Settings")
         }
+        validatedCacheBackend = backendKey()
         // Invoke the service client directly, so timing out kills the actual command
         // instead of leaving cmd running beneath the /system/bin/pm shell wrapper.
-        val result = exec("cmd", "package", "clear", "--user", userId, "--cache-only", packageName)
-        if (result.stderr.contains("timed out", ignoreCase = true)) markCacheUnavailable()
-        return result
+        val result = execWithTimeout(8_000, "cmd", "package", "clear", "--user", userId, "--cache-only", packageName)
+        if (result.stderr.contains("timed out", true) || result.stderr.contains("did not close", true)) markCacheUnavailable()
+        if (result.ok && result.stdout.lineSequence().any { it.trim() == "Success" }) result
+        else result.copy(exitCode = if (result.ok) -1 else result.exitCode,
+            stderr = result.stderr.ifBlank { "Android did not confirm cache clearing" })
     }
 
     private fun allowedPackage(packageName: String): Boolean = runCatching {

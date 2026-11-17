@@ -27,7 +27,7 @@ Tidyra shows truthfully what is consuming storage on an Android phone, proposes 
 Three things a neighbouring cleaner cannot truthfully copy at once:
 
 1. **On-device AI.** An optional downloaded or imported model explains findings. Deterministic rules generate plans; AI cannot mutate files. File information stays on the phone; only user-initiated model downloads use the network.
-2. **Shizuku power mode.** Optional ADB-level access measures restricted folders and uninstalls individually confirmed apps. Cache-only clearing depends on Android support, with a learned Storage Settings fallback after unsupported commands or timeouts.
+2. **Shizuku power mode.** Optional ADB-level access measures restricted folders and uninstalls individually confirmed apps. Cache clearing verifies the server's actual permission first. Explicitly selected apps can be cleared as a batch on supported backends, with progress, cancellation and individual outcomes; otherwise a guided Settings queue opens each selected app on request. Visiting Settings never counts as confirmed clearing.
 3. **Approval as the core mechanic, not a confirmation dialog.** The scan produces a reviewable plan; nothing is acted on until the user approves specific items.
 
 Free, open source, no ads, no trackers, no upsell.
@@ -44,6 +44,7 @@ Free, open source, no ads, no trackers, no upsell.
 Can do:
 - Scan shared storage for size by folder, large files, duplicates (hash-verified), empty folders, stale installers and archives.
 - Report per-app app/data/cache sizes via `StorageStatsManager`, and time-since-last-use via `UsageStatsManager` / standby bucket, to surface unused apps.
+- Select app caches independently of file-trash approval. Use a Shizuku batch where privileged clearing is available, a guided manual Settings queue, or optional Accessibility automation with separate disclosure, OS permission and batch confirmation. The automation only inspects native Settings, requires a unique matching app identity and exact Clear cache control, shows Cancel, and leaves unsupported screens manual. Button requests never count as proof of freed space; selected app statistics are refreshed afterward.
 - Read and organise `Android/media/*` (reachable with All-files access) — this is where WhatsApp-family media lives.
 - Organise selected files with image thumbnails, larger previews, visible source/destination folders, and a separate final review before moving. Type folders are suggestions: choose another folder individually or for a selection, create a new album, and browse source subfolders. Destinations stay in primary shared internal storage, outside protected/app-managed folders. No files are selected by default. Unsupported image formats show an explicit preview-unavailable state.
 - Request uninstall of user-selected apps through the system package installer.
@@ -51,7 +52,7 @@ Can do:
 - List installed apps without usage access. Browse timestamped running-app and live-service snapshots with Shizuku, search them, and filter all/downloaded/system packages. Individually confirmed stops recheck protection rules at execution and refresh their outcomes. System packages, shared UIDs, active default apps, enabled keyboards, accessibility services, administrators, VPN providers and notification-listener providers are protected from direct stop.
 
 Cannot do without Shizuku (hard Android limits, to be stated plainly in the UI, never worked around):
-- Clear another app's cache. Without Shizuku the app deep-links to the system storage screen for that app.
+- Clear another app's cache. Shizuku alone is insufficient: its server must hold INTERNAL_DELETE_CACHE_FILES and Android must advertise cache-only commands. Missing permission uses a guided Settings queue immediately, including on stock ADB setups. Core/persistent packages, shared UIDs, Tidyra and Shizuku are excluded from automated cache targets; ordinary system apps such as Chrome can be reviewed.
 - Read or delete inside another app's `Android/data` or `Android/obb` (Android 11+).
 - Uninstall silently.
 

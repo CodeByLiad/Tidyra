@@ -8,6 +8,12 @@ android {
         targetSdk = 36
         versionCode = 1
         versionName = "1"
+        manifestPlaceholders["fixtureLabel"] = "Tidyra USB Fixture"
+    }
+    buildTypes.create("cachePeer") {
+        initWith(buildTypes.getByName("debug"))
+        applicationIdSuffix = ".peer"
+        manifestPlaceholders["fixtureLabel"] = "Tidyra Cache Peer"
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17

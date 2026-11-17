@@ -38,6 +38,7 @@ class AppInventory(private val context: Context) {
         val uid: Int = -1,
         val groupAppBytes: Bytes = appBytes,
         val groupDataBytes: Bytes = dataBytes + cacheBytes,
+        val cacheBlockedReason: String? = null,
     ) {
         val totalBytes: Bytes get() = appBytes + dataBytes + cacheBytes
         val daysSinceUse: Long
@@ -50,7 +51,7 @@ class AppInventory(private val context: Context) {
         return ops.unsafeCheckOpNoThrow(AppOpsManager.OPSTR_GET_USAGE_STATS, Process.myUid(), context.packageName) == AppOpsManager.MODE_ALLOWED
     }
 
-    suspend fun load(): List<AppEntry> = withContext(Dispatchers.IO) {
+    suspend fun load(onlyPackages: Set<String>? = null): List<AppEntry> = withContext(Dispatchers.IO) {
         if (!hasUsageAccess()) return@withContext emptyList()
 
         val pm = context.packageManager
@@ -60,7 +61,9 @@ class AppInventory(private val context: Context) {
         val lastUsed = lastUsedByPackage()
         val groupStats = mutableMapOf<Int, android.app.usage.StorageStats?>()
 
-        pm.getInstalledApplications(PackageManager.GET_META_DATA).mapNotNull { info ->
+        val installed = pm.getInstalledApplications(PackageManager.GET_META_DATA)
+        val uidCounts = installed.groupingBy { it.uid }.eachCount()
+        installed.filter { onlyPackages == null || it.packageName in onlyPackages }.mapNotNull { info ->
             val stats = runCatching {
                 storageStats.queryStatsForPackage(
                     StorageManager.UUID_DEFAULT,
@@ -84,6 +87,8 @@ class AppInventory(private val context: Context) {
                 uid = info.uid,
                 groupAppBytes = Bytes(group.appBytes),
                 groupDataBytes = Bytes(group.dataBytes),
+                cacheBlockedReason = digital.jinatra.tidyra.core.cache.CachePolicy.blockedReason(info.packageName, info.uid,
+                    info.flags and ApplicationInfo.FLAG_PERSISTENT != 0, (uidCounts[info.uid] ?: 0) > 1),
             )
         }.sortedByDescending { it.totalBytes.value }
     }
@@ -139,14 +144,14 @@ class AppInventory(private val context: Context) {
      * to each app's storage screen instead of pretending it can do the job.
      */
     fun cacheFinding(apps: List<AppEntry>): Finding? {
-        val withCache = apps.filter { it.cacheBytes.value > CACHE_FLOOR }
+        val withCache = apps.filter { it.cacheBytes.value > CACHE_FLOOR }.sortedByDescending { it.cacheBytes.value }
         if (withCache.isEmpty()) return null
 
         return Finding(
             id = "app-cache",
             kind = FindingKind.APP_CACHE,
             title = "Cache in ${withCache.size} " + if (withCache.size == 1) "app" else "apps",
-            detail = "Rebuilds itself as you use the apps. Nothing is lost — not logins, not downloads you chose to keep.",
+            detail = "Temporary files that apps rebuild. Review and select the apps whose cache you want to clear.",
             frees = Bytes(withCache.sumOf { it.cacheBytes.value }),
             risk = Risk.SAFE,
             items = withCache.map {

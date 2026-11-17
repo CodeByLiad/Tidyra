@@ -21,7 +21,7 @@ Three things it does that a typical cleaner does not:
 
 **On-device AI.** An optional model you download or import explains findings locally. Deterministic rules produce the cleanup plan; the model cannot choose or delete files. Your file names, sizes and folders never leave the phone — model downloads are the app's only network requests.
 
-**Shizuku power mode, optional.** With Shizuku paired, Tidyra measures restricted folders and uninstalls individually confirmed apps. Cache-only clearing depends on Android support: a timeout or unsupported command switches the device to Storage Settings until its system build changes. Every screen remains useful without Shizuku.
+**Shizuku power mode, optional.** With Shizuku paired, Tidyra measures restricted folders and uninstalls individually confirmed apps. Cache clearing checks the server's actual Android permission before sending commands. Select apps for a confirmed batch where supported; otherwise review the selected apps through a guided Settings queue. Stock ADB Shizuku commonly cannot clear per-app cache. Every screen remains useful without Shizuku.
 
 **A real undo.** Android has no recycle bin, so Tidyra keeps one. Approved deletions move to an app-owned trash with a manifest of where each file came from, and are purged on a schedule you control. Trashed and freed are reported as two different numbers, because a file in the trash still takes up space.
 
@@ -30,6 +30,7 @@ Three things it does that a typical cleaner does not:
 - Folder sizes across shared storage, and inside `Android/media` where chat apps keep their media
 - Duplicate files, proved byte-for-byte: grouped by exact size, then an 8 KB edge hash, then a full SHA-256 — same name and same size is never treated as proof
 - Per-app storage (app / data / cache) and time since you last opened each app
+- Cache selection with batch progress/cancellation, a guided manual Settings queue, and optional Settings-only Accessibility automation after separate permission and confirmation.
 - Installed / Running / Services views with search and downloaded/system filters. Live running snapshots and individual stop controls use Shizuku; protected/system apps remain available for inspection and Android Settings.
 - Image thumbnails and larger local previews in Organise, explicit From/To folders, per-file or selected-group destination choice, new folders, and a separate final review before moving.
 - Stale installers, empty folders, loose files with no folder of their own, and files over 100 MB
@@ -53,6 +54,7 @@ It also never proposes removing system packages, never pre-selects anything pers
 | `QUERY_ALL_PACKAGES` | Lists installed apps for storage accounting and the app review screen. |
 | `REQUEST_DELETE_PACKAGES` | Opens the system uninstall dialog for an app you selected. |
 | `INTERNET` | The model download, and nothing else. |
+| Accessibility service (optional special access) | Reads only recognized Android Settings cache pages after a confirmed app selection and taps Clear cache. It does not read inside apps, accept unknown dialogs or save/send screen contents. Manual review works without it. |
 
 All are requested in context, with the reason shown first — never on cold start.
 
@@ -92,11 +94,11 @@ video, protected backups, empty folders, loose files):
 | Running apps and services | Shizuku snapshots, search and origin filters; confirmed owner-app stop with outcome verification; protected/system apps remain read-only |
 | On-device model download, load, explain | works |
 | Shizuku uninstall and restricted-folder sizes | verified on a Pixel 10 Pro with Android 17; per-app uninstall confirmation |
-| Shizuku cache clearing | times out on that phone; reports failure, preserves app data, and offers Settings |
+| Cache review | explicit selection, supported-device batch progress/cancellation, and a Settings queue; missing Android permission is rejected before a hanging command can start |
 
 Unit tests cover the safety rules and the prompt framing: `./gradlew testDebugUnitTest`.
 
-The 16 November release pass includes 64 JVM tests, Android lint, a signed minified
+The 17 November cache update includes 82 JVM tests, Android lint, a signed minified
 release, and opt-in optimized-device checks. The release shrinker is pinned separately
 to R8 9.1.57 for Kotlin 2.4 metadata compatibility. Trash retention can be changed in
 the Trash tab; new settings apply on the next launch. See `RESUME.md` for exact
