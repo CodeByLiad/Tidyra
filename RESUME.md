@@ -2,6 +2,42 @@
 
 Checkpoint: 2026-11-22. Version 0.1.6 / code 7 adds compact cache results, expandable app details, Done and reset selection. It retains 0.1.5's Pixel-tested progress safe-area correction and automatic Shizuku Settings batches. Minimum Android 11, compile/target SDK 36.
 
+## Next session: owner's requested UI changes
+
+Owner explicitly deferred these to tomorrow (2026-11-23); record now, implement next
+session rather than continuing UI changes today:
+
+- Storage by category: black/grey segments do not identify categories. Make each
+  segment identifiable with accessible distinct colors/patterns and a matching clear
+  legend or direct labels; keep actual proportional sizes and explain system/unknown
+  remainder. Do not rely on color alone.
+- Completed cache batches: show ALL processed apps immediately with icons, names and
+  concise per-app outcomes. Do not require View app results to reveal them. Preserve
+  REQUESTED versus CONFIRMED, failed/unattempted reasons, Done, and cleared selection;
+  do not restore the verbose repeated native command log.
+
+## 0.1.6 distribution and final Pixel check
+
+Published https://github.com/CodeByLiad/Tidyra/releases/tag/v0.1.6 from commit
+33638e1. Source pushed to main. Signed APK SHA-256:
+37180e5ffb587ad56a8cd8077382fd158cd0fe4e881687ef2f6e29ccaf74e346.
+Installed in place on the Pixel; installed base.apk checksum exactly matched the
+published file. Cold launch passed. Read-only scan exposed exactly ONE native
+ProgressBar at the bottom during Measuring apps (duplicate inline bar removed).
+87 unit tests and lintDebug passed after this change. Four release assets verified
+public: APK, source archive, release notes and checksums. Both owned fixture apps
+were removed afterward; their internal/external keep markers remained intact.
+
+IMPORTANT phone-test incident: the host UI script intended to select only the two
+fixture apps, but its subsequent confirmation showed 21 apps. It clicked Clear cache
+without validating the confirmation count first. A stopservice/force-stop attempt
+followed, but the service was already no longer running. Some personal app caches
+may have been cleared; app data/logins were not targeted. Owner was informed. Do not
+claim the final Pixel mutation check affected only fixtures. In future, never issue
+confirmation clicks blindly: assert the exact approved count AND package/label set,
+check current selection from fresh state, and stop on any mismatch. Coordinate phone
+interaction to avoid racing the owner's taps. No further personal cache actions.
+
 ## 0.1.5 physical Pixel verification
 
 ### 0.1.6 cache-results refinement
