@@ -1,11 +1,31 @@
 # Resume Tidyra here
 
-Checkpoint: 2026-11-22. Version 0.1.4 adds Shizuku-powered native Settings batches, shared operation progress, live uninstall updates and clearer Trash actions. Minimum Android 11, compile/target SDK 36.
+Checkpoint: 2026-11-22. Version 0.1.5 adds the Pixel-tested progress safe-area correction to 0.1.4's Shizuku Settings batches, shared operation progress, live uninstall updates and clearer Trash actions. Minimum Android 11, compile/target SDK 36.
+
+## 0.1.5 physical Pixel verification
+
+The signed 0.1.4 APK installed in place on the Pixel 10 Pro / Android 17. Optimized
+ShellCacheTest passed on the phone: two selected fixture caches removed, both
+internal/external keep markers preserved, protected targets rejected, duplicate
+selection deduplicated, no START/no action, and cancellation preserving unrequested
+cache. RuntimeControlTest passed after freshly starting its disposable service;
+the earlier precondition failure was an already-expired fixture service, not a stop
+failure. LiveUpdatesTest, OrganizePreviewTest, separate recovery prepare/force-stop/
+recover sessions, and native SmolLM load/generate/unload all passed. Six Shizuku
+regressions passed; the optional OS uninstall-dialog case was skipped.
+
+The production read-only scan showed real progress, but its shared footer overlapped
+the gesture bar and inherited a purple default track. Version 0.1.5 / code 6 adds
+bottom system padding when no approval footer owns it, and completes the warm
+secondary-container theme colors. Other app/file mutation policies are unchanged.
+Physical confirmation and final signed installation follow this correction.
+Evidence remains under ignored build/pixel-nov22-*. No real app caches were cleared,
+no real apps uninstalled, and existing private Trash was not emptied.
 
 ## 0.1.4 automatic Settings batches and operation feedback
 
-Checkpoint: 2026-11-22. Version code 5. The user requested emulator checks first;
-physical Pixel verification of the new shell Settings backend is still pending.
+Checkpoint: 2026-11-22. Version code 5. Emulator checks preceded the successful
+physical Pixel verification documented above.
 
 Stock ADB Shizuku lacks INTERNAL_DELETE_CACHE_FILES. Direct-command preflight stays
 in place. A confirmed selected batch can now use a shell-UID app_process helper

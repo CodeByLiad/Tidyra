@@ -100,7 +100,9 @@ Unit tests cover the safety rules and the prompt framing: `./gradlew testDebugUn
 
 The 22 November update adds Android 17 emulator checks for Shizuku-powered Settings
 batches, saved-data preservation, protected-target rejection, cancellation, live uninstall
-updates and Trash progress. Physical Pixel verification of this new route is still pending.
+updates and Trash progress. The new route also passed on the physical Pixel 10 Pro
+with Android 17, including saved-data preservation and cancellation. Version 0.1.5
+corrects the progress footer's gesture-area overlap found during that phone pass.
 The release shrinker is pinned separately
 to R8 9.1.57 for Kotlin 2.4 metadata compatibility. Trash retention can be changed in
 the Trash tab; new settings apply on the next launch. See `RESUME.md` for exact

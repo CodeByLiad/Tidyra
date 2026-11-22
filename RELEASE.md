@@ -1,6 +1,12 @@
-# Tidyra 0.1.4
+# Tidyra 0.1.5
 
-Signed update for Android 11 and newer. Package: `digital.jinatra.tidyra`, version code 5. Uses the original production signing key for in-place updates.
+Signed update for Android 11 and newer. Package: `digital.jinatra.tidyra`, version code 6. Uses the original production signing key for in-place updates.
+
+## Pixel verification and progress-bar correction
+
+Physical Pixel testing verified automatic two-app cache clearing, protected-target rejection, cancellation, preserved saved data, service/app stops, live uninstall updates, image previews, custom destinations and undo, recovery after process restart, and native SmolLM loading/generation/unloading. Mutations used disposable fixtures only.
+
+The phone pass found that the shared progress footer overlapped the gesture area. It now respects the bottom system inset and uses the warm theme's neutral progress track in both light and dark modes.
 
 ## Automatic selected-app cache clearing
 
@@ -22,7 +28,7 @@ Signed update for Android 11 and newer. Package: `digital.jinatra.tidyra`, versi
 
 87 JVM tests pass, and Android lint reports no errors. Optimized Android 17 emulator tests verified two selected disposable caches were removed automatically, duplicate selection, preserved internal/external saved-data markers, protected-target rejection, no action without the parent confirmation signal, cancellation, visible uninstall updates without a rescan, and isolated Trash progress/restore. Six Shizuku regression checks passed; the optional system-uninstall-dialog check was skipped. The signed production APK also completed the normal select/confirm/automatic Settings/return flow for both disposable apps, preserving their saved data and leaving unselected rows unchanged.
 
-Physical Pixel verification of this new route is pending; the user requested emulator checks first. This release does not claim compatibility with every OEM Settings layout. Unrecognized screens remain untouched. Personal app caches were not used for testing.
+Verified on a Pixel 10 Pro with Android 17. This release does not claim compatibility with every OEM Settings layout. Unrecognized screens remain untouched. Personal app caches were not used for testing.
 
 Install over the earlier signed release to preserve app data and Trash. Development `.debug` and `.usbtest` packages remain separate. Do not uninstall an older differently signed build merely to bypass a signature mismatch if it contains saved Trash.
 

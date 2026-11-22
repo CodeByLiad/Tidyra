@@ -10,9 +10,9 @@ import androidx.compose.ui.unit.dp
 import digital.jinatra.tidyra.core.model.OperationProgress
 
 @Composable
-fun OperationStatus(progress: OperationProgress?) {
+fun OperationStatus(progress: OperationProgress?, modifier: Modifier = Modifier) {
     if (progress == null) return
-    Surface(tonalElevation = 0.dp) {
+    Surface(modifier = modifier, tonalElevation = 0.dp) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 12.dp)
             .semantics { liveRegion = LiveRegionMode.Polite }) {
             Text(progress.label + (progress.total?.let { " · ${progress.completed.coerceAtMost(it)} / $it" } ?: ""), style = MaterialTheme.typography.labelLarge)

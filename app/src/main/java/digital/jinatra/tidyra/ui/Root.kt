@@ -193,7 +193,8 @@ fun Root(
                 )
             }
             }
-            digital.jinatra.tidyra.ui.common.OperationStatus(operation)
+            digital.jinatra.tidyra.ui.common.OperationStatus(operation,
+                if (cacheOpen || station.plan.itemCount == 0) Modifier.navigationBarsPadding() else Modifier)
             if (!cacheOpen) ApprovalFooter(station, callbacks)
             return@Column
         }
@@ -289,7 +290,8 @@ fun Root(
             }
         }
 
-        digital.jinatra.tidyra.ui.common.OperationStatus(operation)
+        digital.jinatra.tidyra.ui.common.OperationStatus(operation,
+            if (station.plan.itemCount == 0) Modifier.navigationBarsPadding() else Modifier)
         ApprovalFooter(station, callbacks)
     }
     SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).navigationBarsPadding())
