@@ -14,6 +14,11 @@ Successful native command detail is no longer repeated per app. Dismissing resul
 clears the old selection, and Android Back also dismisses the completed summary.
 Running progress and manual Settings review remain available.
 
+During the signed Pixel install, the owner identified duplicate scan/measurement
+progress. StationScreen's obsolete inline ScanProgress was removed; Root's shared
+bottom OperationStatus remains the single scan indicator across tabs. This fix is
+included in 0.1.6 before publication.
+
 Android 17 / API 37 emulator Tidyra_API37_Current: 87 unit tests pass; lintDebug
 passes without errors. The opt-in
 CacheResultsUiTest passes a display-only 17-app batch, expand/collapse, Done/review

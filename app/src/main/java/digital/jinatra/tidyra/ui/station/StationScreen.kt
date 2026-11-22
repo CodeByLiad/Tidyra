@@ -29,7 +29,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -116,10 +115,6 @@ fun StationScreen(
             if (!state.scanning && state.containers.isEmpty()) {
                 item { FirstScan(onScan, state.hasAllFilesAccess) }
             }
-
-            // Below the figure, not above it: the headline number is what the page is
-            // about, and progress is a note on it rather than something that displaces it.
-            if (state.scanning) item { ScanProgress(state) }
 
             if (!state.hasAllFilesAccess || !state.hasUsageAccess ||
                 state.shizuku != ShizukuBridge.State.READY
@@ -617,23 +612,6 @@ private fun FirstScan(onScan: () -> Unit, hasAccess: Boolean) {
         ) {
             Text("SCAN THIS PHONE", style = type.stencil)
         }
-    }
-}
-
-@Composable
-private fun ScanProgress(state: StationState) {
-    Column(Modifier.padding(horizontal = Module.x3, vertical = Module.u)) {
-        LinearProgressIndicator(
-            modifier = Modifier.fillMaxWidth(),
-            color = MaterialTheme.colorScheme.primary,
-            trackColor = MaterialTheme.colorScheme.surfaceContainerHighest,
-        )
-        Text(
-            text = "${state.scanLabel.orEmpty()} · ${Format.count(state.filesSeen, "file")}",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(top = Module.half),
-        )
     }
 }
 

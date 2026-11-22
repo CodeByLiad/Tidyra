@@ -9,6 +9,7 @@ Signed update for Android 11 and newer. Package: `digital.jinatra.tidyra`, versi
 - Repeated command messages no longer fill the screen. Failed or unconfirmed apps retain their explanation in the expanded list.
 - Settings requests remain distinct from cache clearing confirmed by Android. No estimated bytes are presented as space freed.
 - Running progress, Cancel, manual Settings review, and the existing cache-only safety protections remain available.
+- Scanning and measurement use one persistent bottom progress bar; the duplicate inline Storage indicator has been removed.
 
 ## Validation
 
