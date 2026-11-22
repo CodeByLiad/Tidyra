@@ -25,6 +25,10 @@
 
     <!-- Model download only. No other network use anywhere in the app. -->
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <application
         android:name=".TidyraApp"
@@ -61,6 +65,9 @@
             <meta-data android:name="android.accessibilityservice" android:resource="@xml/cache_accessibility" />
         </service>
 
+        <service android:name=".core.cache.ShellCacheService" android:exported="false" android:foregroundServiceType="specialUse">
+            <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="User-confirmed finite cache clearing through Shizuku and native Settings controls" />
+        </service>
         <provider
             android:name="rikka.shizuku.ShizukuProvider"
             android:authorities="${applicationId}.shizuku"

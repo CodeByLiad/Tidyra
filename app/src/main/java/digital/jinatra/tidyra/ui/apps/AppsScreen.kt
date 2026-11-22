@@ -39,7 +39,7 @@ fun AppsScreen(
     canClearCache: Boolean,
     working: Boolean,
     onGrantUsage: () -> Unit,
-    onRefresh: () -> Unit,
+    onRefresh: (Boolean) -> Unit,
     onStop: (String, String?) -> Unit,
     onRequestShizuku: () -> Unit,
     modifier: Modifier = Modifier,
@@ -52,8 +52,8 @@ fun AppsScreen(
     val type = LocalStationType.current
     val colors = MaterialTheme.colorScheme
     val busy = working || state.busy
-    LaunchedEffect(shizuku) { onRefresh() }
-    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { onRefresh() }
+    LaunchedEffect(shizuku, view) { onRefresh(view != "Installed") }
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { onRefresh(view != "Installed") }
     val byPackage = state.installed.associateBy { it.packageName }
     val stats = if (hasUsageAccess) apps.associateBy { it.packageName } else emptyMap()
     fun matches(app: InstalledApp, extra: String = "") =
@@ -70,7 +70,7 @@ fun AppsScreen(
             Column(Modifier.padding(horizontal = Module.x3, vertical = Module.x2), verticalArrangement = Arrangement.spacedBy(Module.u)) {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Text("Apps", style = MaterialTheme.typography.headlineLarge, modifier = Modifier.weight(1f))
-                    TextButton(onClick = onRefresh, enabled = !busy) { Text(if (state.busy) "REFRESHING" else "REFRESH", style = type.stencil) }
+                    TextButton(onClick = { onRefresh(view != "Installed") }, enabled = !busy) { Text(if (state.busy) "REFRESHING" else "REFRESH", style = type.stencil) }
                 }
                 SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
                     listOf("Installed", "Running", "Services").forEachIndexed { index, title ->

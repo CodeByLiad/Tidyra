@@ -42,7 +42,8 @@ object SafeFiles {
     }
 
     /** Copy durably before removing the source. A full disk leaves the source intact. */
-    fun move(source: File, target: File, allowDirectoryContents: Boolean = false, beforeRemove: () -> Unit = {}) {
+    fun move(source: File, target: File, allowDirectoryContents: Boolean = false,
+        onCopy: (Long, Long) -> Unit = { _, _ -> }, beforeRemove: () -> Unit = {}) {
         require(source.canonicalFile != target.canonicalFile) { "Source and destination are the same" }
         check(!Files.isSymbolicLink(source.toPath())) { "Symbolic links are left alone" }
         target.parentFile?.let { check(it.isDirectory || it.mkdirs()) { "Cannot create destination folder" } }
@@ -72,7 +73,16 @@ object SafeFiles {
                 val modified = source.lastModified()
                 source.inputStream().use { input ->
                     FileOutputStream(target).use { output ->
-                        val copied = input.copyTo(output)
+                        var copied = 0L
+                        val buffer = ByteArray(64 * 1024)
+                        runCatching { onCopy(0, size) }
+                        while (true) {
+                            val count = input.read(buffer)
+                            if (count < 0) break
+                            output.write(buffer, 0, count)
+                            copied += count
+                            runCatching { onCopy(copied, size) }
+                        }
                         output.fd.sync()
                         check(copied == size && source.length() == size && source.lastModified() == modified) {
                             "File changed while copying; scan again"

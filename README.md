@@ -21,7 +21,7 @@ Three things it does that a typical cleaner does not:
 
 **On-device AI.** An optional model you download or import explains findings locally. Deterministic rules produce the cleanup plan; the model cannot choose or delete files. Your file names, sizes and folders never leave the phone — model downloads are the app's only network requests.
 
-**Shizuku power mode, optional.** With Shizuku paired, Tidyra measures restricted folders and uninstalls individually confirmed apps. Cache clearing checks the server's actual Android permission before sending commands. Select apps for a confirmed batch where supported; otherwise review the selected apps through a guided Settings queue. Stock ADB Shizuku commonly cannot clear per-app cache. Every screen remains useful without Shizuku.
+**Shizuku power mode, optional.** With Shizuku paired, Tidyra measures restricted folders and uninstalls individually confirmed apps. Cache clearing checks direct command permissions first; stock shell setups instead step through native Settings automatically for the apps you select and confirm. Keep the phone unlocked; a foreground notification shows progress and Cancel. Unrecognized screens stay untouched, and manual review remains available. Every screen remains useful without Shizuku.
 
 **A real undo.** Android has no recycle bin, so Tidyra keeps one. Approved deletions move to an app-owned trash with a manifest of where each file came from, and are purged on a schedule you control. Trashed and freed are reported as two different numbers, because a file in the trash still takes up space.
 
@@ -39,7 +39,7 @@ Three things it does that a typical cleaner does not:
 
 | Blocked by Android | What Tidyra does instead |
 |---|---|
-| Clear another app's cache | Uses cache-only clearing where Shizuku and Android support it; otherwise opens that app's storage screen |
+| Clear another app's cache | Direct cache-only commands where permitted; otherwise Shizuku automatically steps through verified native Settings controls for the confirmed selection. Manual review stays available. |
 | Read `Android/data` or `Android/obb` (Android 11+) | Measures per-folder allocated sizes with Shizuku; restricted files are not offered for deletion |
 | Uninstall silently | Sends each app through Android's own uninstall dialog, one at a time |
 
@@ -98,8 +98,10 @@ video, protected backups, empty folders, loose files):
 
 Unit tests cover the safety rules and the prompt framing: `./gradlew testDebugUnitTest`.
 
-The 17 November cache update includes 82 JVM tests, Android lint, a signed minified
-release, and opt-in optimized-device checks. The release shrinker is pinned separately
+The 22 November update adds Android 17 emulator checks for Shizuku-powered Settings
+batches, saved-data preservation, protected-target rejection, cancellation, live uninstall
+updates and Trash progress. Physical Pixel verification of this new route is still pending.
+The release shrinker is pinned separately
 to R8 9.1.57 for Kotlin 2.4 metadata compatibility. Trash retention can be changed in
 the Trash tab; new settings apply on the next launch. See `RESUME.md` for exact
 verification and distribution limits. F-Droid acceptance remains pending because the

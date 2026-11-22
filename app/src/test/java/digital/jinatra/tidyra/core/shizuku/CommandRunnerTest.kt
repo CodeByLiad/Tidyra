@@ -10,17 +10,17 @@ import org.junit.Test
 class CommandRunnerTest {
     private class Fake(override val stdout: InputStream = ByteArrayInputStream("done".toByteArray()),
         override val stderr: InputStream = ByteArrayInputStream(byteArrayOf()), val completes: Boolean = true) : CommandRunner.Process {
-        var destroyed = false
+        val destroyedSignal = CountDownLatch(1)
         override fun waitFor(millis: Long): Boolean { if (!completes) Thread.sleep(millis); return completes }
         override fun exitCode() = 7
-        override fun destroy() { destroyed = true }
+        override fun destroy() { destroyedSignal.countDown() }
     }
     @Test fun preservesOutputAndActualExitStatus() {
         val process = Fake()
         val result = CommandRunner.run(process, 2000)
         assertEquals(7, result.code)
         assertEquals("done", result.out)
-        assertTrue(process.destroyed)
+        assertTrue(process.destroyedSignal.await(1, java.util.concurrent.TimeUnit.SECONDS))
     }
     @Test fun timeoutDestroysProcessWithoutWaitingForInheritedPipe() {
         val closed = CountDownLatch(1)
@@ -32,7 +32,7 @@ class CommandRunnerTest {
         val started = System.nanoTime()
         assertTrue(CommandRunner.run(process, 100).error.contains("timed out"))
         assertTrue((System.nanoTime() - started) / 1_000_000 < 1500)
-        assertTrue(process.destroyed)
+        assertTrue(process.destroyedSignal.await(1, java.util.concurrent.TimeUnit.SECONDS))
         closed.countDown()
     }
     @Test fun exitedParentWithOpenPipeIsNotSuccessful() {
@@ -50,7 +50,7 @@ class CommandRunnerTest {
     @Test fun cancellationStopsWaiting() {
         val process = Fake(completes = false)
         assertEquals("Command cancelled", CommandRunner.run(process, 30_000) { true }.error)
-        assertTrue(process.destroyed)
+        assertTrue(process.destroyedSignal.await(1, java.util.concurrent.TimeUnit.SECONDS))
     }
     @Test fun brokenOutputCannotMasqueradeAsCompleteResult() {
         val broken = object : InputStream() { override fun read(): Int = throw IOException("broken") }
@@ -61,5 +61,26 @@ class CommandRunnerTest {
         val result = CommandRunner.run(Fake(stdout = ByteArrayInputStream(bytes)), 5000)
         assertEquals(-1, result.code)
         assertTrue(result.error.contains("incomplete"))
+    }
+    @Test fun blockedRemoteDestroyDoesNotExtendDeadline() {
+        val release = CountDownLatch(1)
+        val process = object : CommandRunner.Process {
+            override val stdout = ByteArrayInputStream(byteArrayOf())
+            override val stderr = ByteArrayInputStream(byteArrayOf())
+            override fun waitFor(millis: Long): Boolean { Thread.sleep(millis); return false }
+            override fun exitCode() = 0
+            override fun destroy() { release.await() }
+        }
+        try {
+            val started = System.nanoTime()
+            assertTrue(CommandRunner.run(process, 100).error.contains("timed out"))
+            assertTrue((System.nanoTime() - started) / 1_000_000 < 1000)
+        } finally { release.countDown() }
+    }
+    @Test fun streamsProgressWithoutLosingCapturedOutput() {
+        val lines = mutableListOf<String>()
+        val result = CommandRunner.run(Fake(ByteArrayInputStream("first\nsecond\n".toByteArray())), 1000, onStdoutLine = { lines += it })
+        assertEquals(listOf("first", "second"), lines)
+        assertEquals("first\nsecond\n", result.out)
     }
 }

@@ -36,6 +36,10 @@
 -keep,allowoptimization class digital.jinatra.tidyra.core.shizuku.RestrictedFolder { public *; }
 -keep,allowoptimization class digital.jinatra.tidyra.core.runtime.** { public *; }
 -keep,allowoptimization class digital.jinatra.tidyra.core.cache.** { public *; }
+-keep class digital.jinatra.tidyra.core.cache.ShellCacheMain { public static void main(java.lang.String[]); }
+-keep,allowoptimization class digital.jinatra.tidyra.core.model.OperationProgress { public *; }
+-keep,allowoptimization class digital.jinatra.tidyra.ui.apps.AppsViewModel { public *; }
+-keep,allowoptimization class digital.jinatra.tidyra.ui.apps.AppsState { public *; }
 -keep,allowoptimization class digital.jinatra.tidyra.core.preview.LocalImageDecoder { public *; }
 -keep,allowoptimization class digital.jinatra.tidyra.ai.MediaPipeLlmEngine { public *; }
 -keep,allowoptimization class digital.jinatra.tidyra.ai.PromptTemplate { public *; }

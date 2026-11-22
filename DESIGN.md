@@ -266,7 +266,7 @@ It replaced a column of per-row bars. Seven per-row tracks against a whole-devic
 A contents-page line: rank number in a 20dp column, label, a dotted leader running across to the figure, the proposed amount in crimson if any, then the exact size and its percentage in Playfair, then a drawn chevron. At least 48dp tall, and announced to TalkBack as one sentence.
 
 ### The Finding Row (signature)
-A proposal, not a notification. Left: a 22dp `SelectionRing` inside a full interactive target — per-item approval is the product's premise, so its control gets a real target rather than a 20dp dot. App findings (uninstall, cache) get a chevron into their dedicated action flow and never enter file trash. Cache detail uses native checkboxes, a single compact heading and selected total, and one bottom action. It shows Clear selected cache only when the backend has permission; otherwise Open selected settings starts a guided queue. Progress/cancel or queue navigation replaces that action while active; per-app outcomes remain visible without claiming estimated freed space. Middle: title, one line of plain detail, then a 6dp risk pip, its risk word in `stencil` caps, and — when the finding overlaps another — `· SHARED ITEMS COUNTED ONCE`. Right: what it frees, in crimson when selected, with the item count beneath. Closed by a faint hairline.
+A proposal, not a notification. Left: a 22dp `SelectionRing` inside a full interactive target — per-item approval is the product's premise, so its control gets a real target rather than a 20dp dot. App findings (uninstall, cache) get a chevron into their dedicated action flow and never enter file trash. Cache detail uses native checkboxes, a single compact heading and selected total, and one bottom action. It shows Clear selected cache for direct cache-only permissions or a ready Shizuku Settings backend; manual Settings review remains selectable. A confirmed automatic Settings batch uses a finite foreground service and notification progress/Cancel. Progress/cancel or queue navigation replaces that action while active; per-app outcomes remain visible without claiming estimated freed space. Middle: title, one line of plain detail, then a 6dp risk pip, its risk word in `stencil` caps, and — when the finding overlaps another — `· SHARED ITEMS COUNTED ONCE`. Right: what it frees, in crimson when selected, with the item count beneath. Closed by a faint hairline.
 
 **The Counted-Once Rule.** A file that belongs to two findings is counted once in the plan, and the overlap is stated on the row rather than quietly resolved. Totals across findings must reconcile with the approval bar.
 
@@ -277,6 +277,14 @@ A proposal, not a notification. Left: a 22dp `SelectionRing` inside a full inter
 
 ### The Approval Bar
 The one floating plate. Lifted-paper ground, a hairline above it, navigation-bar padding, `SELECTED` in `stencil` caps over the plan's total and item count, and the crimson primary button at the right. It slides in from the bottom when the plan is non-empty and slides out when it empties. The label reads `SELECTED`, never `APPROVED` — the tap beside it is what approves it.
+
+### Operation progress and Trash
+Operation progress stays outside scrolling lists: a concise action/current-item line
+and a native linear indicator. Use observed counts or bytes; unknown work stays
+indeterminate. Trash actions occupy a fixed bottom area: outlined Select, crimson
+Restore, and separately outlined destructive Empty trash. Use 4dp corners, warm
+surface tones for row Restore buttons, and full native touch targets. No default
+purple tonal surfaces or pill-shaped Trash actions.
 
 ### The Notice
 A 6dp pip in the relevant status colour, a Playfair title, plain body copy, and an optional crimson `stencil` text action. No box, no tint, no banner.

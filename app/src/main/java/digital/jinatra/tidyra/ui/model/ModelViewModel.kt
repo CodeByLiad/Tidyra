@@ -23,6 +23,7 @@ data class ModelState(
     val token: String = "",
     val loadedModelPath: String? = null,
     val loading: Boolean = false,
+    val operation: digital.jinatra.tidyra.core.model.OperationProgress? = null,
     val message: String? = null,
 ) {
     data class Entry(
@@ -86,6 +87,10 @@ class ModelViewModel(app: Application) : AndroidViewModel(app) {
     fun setToken(token: String) = _state.update { it.copy(token = token) }
 
     fun download(model: ModelCatalog.Model) {
+        if (model.needsHuggingFaceToken && _state.value.token.isBlank()) {
+            updateEntry(model.id) { it.copy(error = "Accept this model's licence on Hugging Face and add a read token below, or choose SmolLM without an account.") }
+            return
+        }
         if (downloadJob?.isActive == true) {
             _state.update { it.copy(message = "One download at a time — a model is already coming down.") }
             return
@@ -121,20 +126,28 @@ class ModelViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun delete(model: ModelCatalog.Model) {
-        if (_state.value.loading) return
+        if (_state.value.loading || _state.value.operation != null) return
+        _state.update { it.copy(loading = true, operation = digital.jinatra.tidyra.core.model.OperationProgress("Removing model")) }
         viewModelScope.launch {
+            try {
             if (_state.value.loadedModelPath == ModelCatalog.fileFor(getApplication(), model).absolutePath) {
                 kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { engine.unload() }
                 _state.update { it.copy(loadedModelPath = null) }
             }
             downloader.delete(model)
             refresh()
+            } catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled }
+            catch (_: Exception) { _state.update { it.copy(message = "Could not remove the model. Check storage access and try again.") } }
+            finally { _state.update { it.copy(loading = false, operation = null) } }
         }
     }
 
     /** A model file the user already has. No network, no token, no licence gate. */
     fun import(uri: Uri, displayName: String) {
+        if (_state.value.loading || _state.value.operation != null) return
+        _state.update { it.copy(operation = digital.jinatra.tidyra.core.model.OperationProgress("Importing model", current = displayName)) }
         viewModelScope.launch {
+            try {
             val context = getApplication<Application>()
             val target = File(ModelCatalog.modelDir(context), java.util.UUID.randomUUID().toString() + "_" + File(displayName).name)
             val partial = File(target.path + ".part")
@@ -142,7 +155,18 @@ class ModelViewModel(app: Application) : AndroidViewModel(app) {
                 runCatching {
                     require(target.extension == "task") { "Choose a .task model file" }
                     context.contentResolver.openInputStream(uri)?.use { input ->
-                        java.io.FileOutputStream(partial).use { output -> input.copyTo(output); output.fd.sync() }
+                        java.io.FileOutputStream(partial).use { output ->
+                            val buffer = ByteArray(64 * 1024)
+                            var copied = 0L
+                            while (true) {
+                                val count = input.read(buffer)
+                                if (count < 0) break
+                                output.write(buffer, 0, count)
+                                copied += count
+                                _state.update { it.copy(operation = digital.jinatra.tidyra.core.model.OperationProgress("Importing model", current = displayName, bytesDone = copied)) }
+                            }
+                            output.fd.sync()
+                        }
                     } ?: error("File could not be opened")
                     check(partial.length() > 0 && partial.renameTo(target)) { "Model file was empty or could not be saved" }
                     true
@@ -151,9 +175,10 @@ class ModelViewModel(app: Application) : AndroidViewModel(app) {
             if (!ok) partial.delete()
 
             _state.update {
-                it.copy(message = if (ok) "Imported ${target.name}" else "That file could not be read")
+                it.copy(operation = null, message = if (ok) "Imported ${target.name}" else "That file could not be read")
             }
             refresh()
+            } finally { _state.update { it.copy(operation = null) } }
         }
     }
 

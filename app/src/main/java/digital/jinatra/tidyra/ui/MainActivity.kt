@@ -31,8 +31,35 @@ import androidx.core.view.WindowCompat
 import androidx.compose.foundation.shape.RoundedCornerShape
 import digital.jinatra.tidyra.ui.theme.Module
 import digital.jinatra.tidyra.core.cache.CacheAutomation
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.IntentFilter
+import androidx.core.content.ContextCompat
 
 class MainActivity : ComponentActivity() {
+    private var pendingShellCaches: List<String>? = null
+    private val cacheNotifications = registerForActivityResult(androidx.activity.result.contract.ActivityResultContracts.RequestPermission()) {
+        pendingShellCaches?.let(stationModel::clearCachesViaAccessibility)
+        pendingShellCaches = null
+    }
+    private fun startShellCaches(packages: List<String>) {
+        if (android.os.Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(this, android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            pendingShellCaches = packages.toList()
+            cacheNotifications.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+        } else stationModel.clearCachesViaAccessibility(packages)
+    }
+    private val packageEvents = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            val pkg = intent.data?.schemeSpecificPart ?: return
+            if (intent.action == Intent.ACTION_PACKAGE_REMOVED && !intent.getBooleanExtra(Intent.EXTRA_REPLACING, false)) {
+                stationModel.onPackageRemoved(pkg)
+                appsModel.onPackageRemoved(pkg)
+            } else if (intent.action != Intent.ACTION_PACKAGE_REMOVED) {
+                appsModel.refreshInstalled()
+                stationModel.reconcileInstalledApps()
+            }
+        }
+    }
 
     private val stationModel: StationViewModel by viewModels()
     private val appsModel: digital.jinatra.tidyra.ui.apps.AppsViewModel by viewModels()
@@ -49,6 +76,10 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        ContextCompat.registerReceiver(this, packageEvents, IntentFilter().apply {
+            addAction(Intent.ACTION_PACKAGE_REMOVED); addAction(Intent.ACTION_PACKAGE_ADDED)
+            addAction(Intent.ACTION_PACKAGE_REPLACED); addDataScheme("package")
+        }, ContextCompat.RECEIVER_EXPORTED)
 
         setContent {
             var dark by rememberSaveable { mutableStateOf<Boolean?>(null) }
@@ -113,7 +144,10 @@ class MainActivity : ComponentActivity() {
                         onNextCacheSettings = { stationModel.nextCacheSettings()?.let(::openCacheSettings) },
                         onEndCacheSettings = stationModel::finishCacheSettings,
                         onOpenCacheSettings = ::openCacheSettings,
-                        onConfigureCacheAutomation = { cacheAutomationConsent = true },
+                        onConfigureCacheAutomation = {
+                            if (stationModel.shizuku.state() == digital.jinatra.tidyra.core.shizuku.ShizukuBridge.State.READY) stationModel.useCacheAutomation(true)
+                            else cacheAutomationConsent = true
+                        },
                         onUseManualCache = { stationModel.useCacheAutomation(false) },
                         onRetentionDays = stationModel::setRetentionDays,
                         onDismissMessage = stationModel::dismissMessage,
@@ -156,7 +190,7 @@ class MainActivity : ComponentActivity() {
                     )
                 }
                 requestedCaches?.let { packages ->
-                    val automatic = station.canClearCache || (station.useCacheAutomation && station.cacheAutomationAvailable && station.cacheAutomationProblem == null)
+                    val automatic = !station.preferManualCache && (station.canClearCache || stationModel.shizuku.state() == digital.jinatra.tidyra.core.shizuku.ShizukuBridge.State.READY || (station.useCacheAutomation && station.cacheAutomationAvailable && station.cacheAutomationProblem == null))
                     val names = packages.take(4).joinToString(", ") { pkg -> station.apps.firstOrNull { it.packageName == pkg }?.label ?: pkg }
                     val summary = names + if (packages.size > 4) " and ${packages.size - 4} more" else ""
                     AlertDialog(
@@ -165,12 +199,14 @@ class MainActivity : ComponentActivity() {
                         title = { Text(if (automatic) "Clear cache in ${packages.size} ${if (packages.size == 1) "app" else "apps"}?" else "Review ${packages.size} ${if (packages.size == 1) "app" else "apps"} in Settings?") },
                         text = { Text(if (automatic)
                             "$summary. Only temporary cache will be requested for clearing. App data and logins stay. You can cancel remaining requests." +
-                                if (!station.canClearCache) " Android Settings will open, with a visible Cancel control. Unrecognized screens are left for manual review." else ""
-                            else "$summary. Android does not allow automatic cache clearing on this setup. In each app's Storage & cache screen, tap Clear cache, then return to Tidyra for the next app. Avoid Clear storage; it removes app data.") },
+                                if (!station.canClearCache) " Android Settings will step through the selected apps automatically. Keep your phone unlocked. Cancel remaining requests from the notification or return to Tidyra. Unrecognized screens are left for review." else ""
+                            else "$summary. In each app's Storage & cache screen, tap Clear cache, then return to Tidyra for the next app. Avoid Clear storage; it removes app data.") },
                         confirmButton = {
                             TextButton(enabled = !station.working && !station.scanning, onClick = {
                                 requestedCaches = null
-                                if (stationModel.shizuku.canClearCache()) stationModel.clearCaches(packages)
+                                if (station.preferManualCache) stationModel.startCacheSettings(packages)?.let(::openCacheSettings)
+                                else if (stationModel.shizuku.canClearCache()) stationModel.clearCaches(packages)
+                                else if (stationModel.shizuku.state() == digital.jinatra.tidyra.core.shizuku.ShizukuBridge.State.READY) startShellCaches(packages)
                                 else if (station.useCacheAutomation && CacheAutomation.state.value.connected && CacheAutomation.unavailableReason(this@MainActivity) == null) stationModel.clearCachesViaAccessibility(packages)
                                 else stationModel.startCacheSettings(packages)?.let(::openCacheSettings)
                             }) { Text(if (automatic) "Clear cache" else "Open settings") }
@@ -210,6 +246,7 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
+        unregisterReceiver(packageEvents)
         stationModel.shizuku.removePermissionListener(shizukuListener)
         super.onDestroy()
     }
@@ -219,6 +256,8 @@ class MainActivity : ComponentActivity() {
         // All-files and usage access are granted in Settings, outside the app, so the only
         // way to learn the answer is to look again each time the user comes back.
         stationModel.refreshPermissions()
+        stationModel.reconcileInstalledApps()
+        appsModel.refreshInstalled()
     }
 
     private fun requestAllFilesAccess() {

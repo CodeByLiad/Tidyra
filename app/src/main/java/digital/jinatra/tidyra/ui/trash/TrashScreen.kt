@@ -2,6 +2,7 @@ package digital.jinatra.tidyra.ui.trash
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -11,6 +12,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.semantics.*
 import digital.jinatra.tidyra.core.model.Bytes
@@ -93,13 +96,15 @@ fun TrashScreen(
         )
     }
 
-    LazyColumn(modifier.fillMaxWidth(), contentPadding = PaddingValues(bottom = Module.x4)) {
+    Column(modifier.fillMaxSize()) {
+    LazyColumn(Modifier.weight(1f).fillMaxWidth(), contentPadding = PaddingValues(bottom = Module.x4)) {
         item {
             Column(Modifier.padding(horizontal = Module.x3, vertical = Module.x2)) {
                 Text("Trash", style = type.section, modifier = Modifier.semantics { heading() })
                 Text(
                     if (entries.isEmpty()) "Nothing in trash. Files you approve for removal land here first."
-                    else "${Format.size(totalBytes)} held in ${Format.count(entries.size, "item")}. Space returns only when these copies are permanently deleted.",
+                    else if (totalBytes.value == 0L) "${Format.count(entries.size, "saved item")}. No storage space to reclaim."
+                    else "${Format.size(totalBytes)} held in ${Format.count(entries.size, "item")}. Space returns when these copies are permanently deleted.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = colors.onSurfaceVariant,
                     modifier = Modifier.padding(top = Module.u),
@@ -111,30 +116,6 @@ fun TrashScreen(
                     Text(if (retentionDays == 0) "Kept until you empty trash" else "Auto-delete after $retentionDays days, on launch",
                         style = MaterialTheme.typography.bodySmall, modifier = Modifier.align(Alignment.CenterVertically))
                     Action("CHANGE", !working) { proposedDays = retentionDays; choosingRetention = true }
-                }
-            }
-            HorizontalDivider(color = colors.outline)
-        }
-        if (entries.isNotEmpty()) item {
-            Column(Modifier.padding(horizontal = Module.x3, vertical = Module.u)) {
-                if (selecting) Text("${chosen.size} selected · ${Format.size(Bytes(chosen.sumOf { it.size.value }))}",
-                    style = type.amount, modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite })
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(Module.x2)) {
-                    if (selecting) {
-                        Action("CANCEL", !working) { selecting = false; picked = emptySet() }
-                        Action(if (chosen.size == entries.size) "DESELECT ALL" else "SELECT ALL", !working) {
-                            picked = if (chosen.size == entries.size) emptySet() else entries.map { it.id }.toSet()
-                        }
-                        Action("RESTORE ${chosen.size}", chosen.isNotEmpty() && !working) {
-                            onRestoreMany(chosen.map { it.id }.toSet())
-                            selecting = false; picked = emptySet()
-                        }
-                        Action("DELETE FOREVER", chosen.isNotEmpty() && !working) { deleting = chosen }
-                    } else {
-                        Action("SELECT", !working) { selecting = true }
-                        Action("RESTORE ALL", !working, onRestoreAll)
-                        Action("EMPTY TRASH", !working) { deleting = entries.toList() }
-                    }
                 }
             }
             HorizontalDivider(color = colors.outline)
@@ -159,7 +140,7 @@ fun TrashScreen(
                 }
                 Column(Modifier.weight(1f).padding(end = Module.u)) {
                     Text(name, style = MaterialTheme.typography.bodyLarge)
-                    Text("From $folder", style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
+                    Text("From $folder", maxLines = 2, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
                     entry.recoveryNote?.let { note ->
                         Text(note + " Kept until you decide; automatic expiry is off for this copy.",
                             style = MaterialTheme.typography.bodySmall, color = colors.primary,
@@ -170,11 +151,27 @@ fun TrashScreen(
                 }
                 Column(horizontalAlignment = Alignment.End) {
                     Text(Format.size(entry.size), style = type.amount)
-                    if (!selecting) Action("PUT BACK", !working) { onRestore(entry.id) }
+                    if (!selecting) FilledTonalButton(shape = RoundedCornerShape(Module.half), colors = ButtonDefaults.filledTonalButtonColors(containerColor = colors.surfaceContainerHigh, contentColor = colors.onSurface), enabled = !working, onClick = { onRestore(entry.id) }) { Text("Restore") }
                 }
             }
             HorizontalDivider(color = colors.outlineVariant)
         }
+    }
+    if (entries.isNotEmpty()) Surface(color = colors.surface) {
+        Column(Modifier.fillMaxWidth().padding(horizontal = Module.x3, vertical = Module.u)) {
+            if (selecting) Text("${chosen.size} selected", style = MaterialTheme.typography.labelLarge)
+            Row(horizontalArrangement = Arrangement.spacedBy(Module.u)) {
+                OutlinedButton(shape = RoundedCornerShape(Module.half), border = BorderStroke(1.dp, colors.onSurfaceVariant), colors = ButtonDefaults.outlinedButtonColors(contentColor = colors.onSurface), enabled = !working, onClick = { selecting = !selecting; picked = emptySet() }) { Text(if (selecting) "Cancel" else "Select") }
+                Button(shape = RoundedCornerShape(Module.half), modifier = Modifier.weight(1f), enabled = !working && (!selecting || chosen.isNotEmpty()), onClick = {
+                    if (selecting) { onRestoreMany(chosen.map { it.id }.toSet()); selecting = false; picked = emptySet() } else onRestoreAll()
+                }) { Text(if (selecting) "Restore ${chosen.size}" else "Restore all") }
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(Module.u)) {
+                if (selecting) TextButton(enabled = !working, onClick = { picked = if (chosen.size == entries.size) emptySet() else entries.map { it.id }.toSet() }) { Text(if (chosen.size == entries.size) "Deselect all" else "Select all") }
+                OutlinedButton(shape = RoundedCornerShape(Module.half), border = BorderStroke(1.dp, colors.error), modifier = Modifier.weight(1f), enabled = !working && (!selecting || chosen.isNotEmpty()), colors = ButtonDefaults.outlinedButtonColors(contentColor = colors.error), onClick = { deleting = if (selecting) chosen.toList() else entries.toList() }) { Text(if (selecting) "Delete selected" else "Empty trash") }
+            }
+        }
+    }
     }
 }
 

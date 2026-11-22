@@ -4,6 +4,7 @@ import android.content.Context
 import digital.jinatra.tidyra.core.model.Bytes
 import digital.jinatra.tidyra.core.model.CleanupResult
 import digital.jinatra.tidyra.core.model.Finding
+import digital.jinatra.tidyra.core.model.OperationProgress
 import digital.jinatra.tidyra.core.safety.Protected
 import digital.jinatra.tidyra.core.safety.SafeFiles
 import digital.jinatra.tidyra.core.safety.AtomicJson
@@ -40,13 +41,16 @@ class TrashStore internal constructor(private val root: File,
 
     data class BatchResult(val count: Int, val bytes: Bytes, val failures: List<String>)
 
-    suspend fun trash(paths: Collection<String>, expected: Map<String, Finding.Item> = emptyMap()): CleanupResult = locked {
+    suspend fun trash(paths: Collection<String>, expected: Map<String, Finding.Item> = emptyMap(),
+        onProgress: (OperationProgress) -> Unit = {}): CleanupResult = locked {
         root.mkdirs()
         val entries = readManifest().toMutableList()
         val failures = mutableListOf<CleanupResult.Failure>()
         var moved = 0L
         var count = 0
-        for (path in paths.distinct()) {
+        val unique = paths.distinct()
+        for ((index, path) in unique.withIndex()) {
+            runCatching { onProgress(OperationProgress("Moving to Trash", index, unique.size, File(path).name)) }
             runCatching {
                 val source = File(path)
                 expected[path]?.let { item ->
@@ -66,7 +70,9 @@ class TrashStore internal constructor(private val root: File,
                 // This record exists even if the process stops halfway through the copy.
                 AtomicJson.write(intent, encode(entry).put("digest",
                     if (source.isDirectory) "directory" else SafeFiles.digest(source)).toString())
-                SafeFiles.move(source, File(entry.trashedPath)) {
+                SafeFiles.move(source, File(entry.trashedPath), onCopy = { done, total ->
+                    onProgress(OperationProgress("Moving to Trash", index, unique.size, source.name, done, total))
+                }) {
                     // Commit before removing the original, so interrupted moves are recoverable.
                     writeManifest(entries + entry)
                     entries += entry
@@ -75,17 +81,18 @@ class TrashStore internal constructor(private val root: File,
                 count++
                 intent.delete()
             }.onFailure { failures += CleanupResult.Failure(path, it.message ?: "Could not move to trash") }
+            runCatching { onProgress(OperationProgress("Moving to Trash", index + 1, unique.size, File(path).name)) }
         }
         CleanupResult(Bytes(moved), count, failures, root.absolutePath)
     }
 
-    suspend fun restore(id: String): Boolean = locked { restoreEntry(id) }
+    suspend fun restore(id: String, onCopy: (Long, Long) -> Unit = { _, _ -> }): Boolean = locked { restoreEntry(id, onCopy) }
 
-    private fun restoreEntry(id: String): Boolean {
+    private fun restoreEntry(id: String, onCopy: (Long, Long) -> Unit = { _, _ -> }): Boolean {
         val entries = readManifest().toMutableList()
         val entry = entries.firstOrNull { it.id == id } ?: return false
         return runCatching {
-            SafeFiles.move(savedFile(entry), SafeFiles.restoredTarget(File(entry.originalPath)), allowDirectoryContents = true)
+            SafeFiles.move(savedFile(entry), SafeFiles.restoredTarget(File(entry.originalPath)), allowDirectoryContents = true, onCopy = onCopy)
             entries.remove(entry)
             writeManifest(entries)
             true
@@ -105,14 +112,16 @@ class TrashStore internal constructor(private val root: File,
     }
 
     suspend fun purgeAll(): BatchResult = locked { purgeEntries(readManifest().map { it.id }.toSet()) }
-    suspend fun purge(ids: Collection<String>): BatchResult = locked { purgeEntries(ids.toSet()) }
+    suspend fun purge(ids: Collection<String>, onProgress: (OperationProgress) -> Unit = {}): BatchResult = locked { purgeEntries(ids.toSet(), onProgress) }
 
-    private fun purgeEntries(ids: Set<String>): BatchResult {
+    private fun purgeEntries(ids: Set<String>, onProgress: (OperationProgress) -> Unit = {}): BatchResult {
         val entries = readManifest().toMutableList()
         val failures = mutableListOf<String>()
         var bytes = 0L
         var count = 0
-        for (entry in entries.toList().filter { it.id in ids }) {
+        val selected = entries.toList().filter { it.id in ids }
+        for ((index, entry) in selected.withIndex()) {
+            runCatching { onProgress(OperationProgress("Emptying Trash", index, selected.size, File(entry.originalPath).name)) }
             runCatching {
                 val file = savedFile(entry)
                 val existed = file.exists()
@@ -123,6 +132,7 @@ class TrashStore internal constructor(private val root: File,
                 entries.remove(entry)
                 writeManifest(entries)
             }.onFailure { failures += it.message ?: "Could not empty trash" }
+            runCatching { onProgress(OperationProgress("Emptying Trash", index + 1, selected.size, File(entry.originalPath).name)) }
         }
         return BatchResult(count, Bytes(bytes), failures)
     }

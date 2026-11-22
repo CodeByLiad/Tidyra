@@ -4,6 +4,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.isActive
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import android.content.Context
 import android.content.pm.ApplicationInfo
 import android.os.Process as AndroidProcess
@@ -78,7 +81,18 @@ class ShizukuBridge(private val context: Context) {
      */
     suspend fun exec(vararg command: String): ShellResult = execWithTimeout(30_000, *command)
 
-    suspend fun execWithTimeout(timeoutMillis: Long, vararg command: String): ShellResult = withContext(Dispatchers.IO) {
+    suspend fun execWithTimeout(timeoutMillis: Long, vararg command: String): ShellResult = execLive(timeoutMillis, command.toList())
+
+    suspend fun automateCaches(packages: List<String>, onLine: (String) -> Unit): ShellResult {
+        val selected = packages.distinct()
+        require(selected.isNotEmpty() && selected.size <= 500 && selected.all { Regex("[A-Za-z][A-Za-z0-9_]*(\\.[A-Za-z0-9_]+)+").matches(it) })
+        return execLive((selected.size * 15_000L + 15_000).coerceAtMost(600_000),
+            listOf("/system/bin/env", "CLASSPATH=${context.applicationInfo.sourceDir}", "/system/bin/app_process", "/system/bin",
+                "digital.jinatra.tidyra.core.cache.ShellCacheMain", "--caller", context.packageName) + selected, onLine, true)
+    }
+
+    private suspend fun execLive(timeoutMillis: Long, command: List<String>, onLine: ((String) -> Unit)? = null,
+        handshake: Boolean = false): ShellResult = withContext(Dispatchers.IO) {
         if (state() != State.READY) {
             return@withContext ShellResult(-1, "", "Shizuku is not ready")
         }
@@ -92,15 +106,30 @@ class ShizukuBridge(private val context: Context) {
             ).apply { isAccessible = true }
 
             @Suppress("UNCHECKED_CAST")
-            val process = method.invoke(null, arrayOf(*command), null, null) as ShizukuRemoteProcess
+            val process = method.invoke(null, command.toTypedArray(), null, null) as ShizukuRemoteProcess
+            val control = if (handshake) process.outputStream else null
+            fun stopControl() {
+                // Shizuku may retain a duplicate pipe descriptor. Send an explicit stop byte
+                // before closing instead of depending solely on EOF propagation.
+                runCatching { control?.apply { write(1); flush() } }
+                runCatching { control?.close() }
+            }
+            try {
+            caller.ensureActive()
+            control?.apply { write("START\n".toByteArray()); flush() }
             val result = CommandRunner.run(object : CommandRunner.Process {
                 override val stdout get() = process.inputStream
                 override val stderr get() = process.errorStream
                 override fun waitFor(millis: Long) = process.waitForTimeout(millis, TimeUnit.MILLISECONDS)
                 override fun exitCode() = process.exitValue()
                 override fun destroy() = process.destroy()
-            }, timeoutMillis, cancelled = { !caller.isActive })
+                override fun cancel() = stopControl()
+            }, timeoutMillis, cancelled = { !caller.isActive }, onStdoutLine = onLine)
             ShellResult(result.code, result.out, result.error)
+            } finally {
+                stopControl()
+                Thread({ runCatching { process.destroy() } }, "tidyra-remote-cleanup").apply { isDaemon = true; start() }
+            }
         }.getOrElse { error ->
             ShellResult(-1, "", error.message ?: error::class.java.simpleName)
         }
@@ -153,15 +182,17 @@ class ShizukuBridge(private val context: Context) {
 
     data class RestrictedResult(val folders: List<RestrictedFolder>, val note: String?)
 
-    suspend fun running(): digital.jinatra.tidyra.core.runtime.RunningSnapshot {
-        val processes = exec("ps", "-A", "-o", "UID,PID,NAME")
-        val services = exec("dumpsys", "activity", "services")
+    suspend fun running(): digital.jinatra.tidyra.core.runtime.RunningSnapshot = coroutineScope {
+        val processRead = async { execWithTimeout(4_000, "ps", "-A", "-o", "UID,PID,NAME") }
+        val serviceRead = async { execWithTimeout(7_000, "dumpsys", "-t", "5", "activity", "services") }
+        val processes = processRead.await()
+        val services = serviceRead.await()
         val processOk = processes.ok && Regex("(?m)^\\s*UID\\s+PID\\s+NAME\\s*$").containsMatchIn(processes.stdout)
         val serviceOk = services.ok && services.stdout.contains("ACTIVITY MANAGER SERVICES")
-        return digital.jinatra.tidyra.core.runtime.RunningSnapshot(
+        digital.jinatra.tidyra.core.runtime.RunningSnapshot(
             if (processOk) digital.jinatra.tidyra.core.runtime.RunningParser.processes(processes.stdout, userId.toInt()) else emptyList(),
             if (serviceOk) digital.jinatra.tidyra.core.runtime.RunningParser.services(services.stdout, userId.toInt()) else emptyList(),
-            processOk, serviceOk, if (processOk && serviceOk) null else "Android did not provide a complete running snapshot. Refresh or use app settings.")
+            processOk, serviceOk, if (processOk && serviceOk) null else "Some running information was unavailable within the time limit. Installed apps remain available; refresh to try again.")
     }
 
     /** Recheck live package policy at the privileged boundary, never trust a stale row. */
@@ -184,15 +215,21 @@ class ShizukuBridge(private val context: Context) {
         val packages = context.packageManager.getInstalledApplications(0)
             .filter { it.flags and ApplicationInfo.FLAG_SYSTEM == 0 }.map { it.packageName }
         var incomplete = false
+        val deadline = android.os.SystemClock.elapsedRealtime() + 12_000
+        suspend fun measure(vararg args: String): ShellResult {
+            val remaining = deadline - android.os.SystemClock.elapsedRealtime()
+            return if (remaining <= 0) ShellResult(-1, "", "Folder measurement time limit reached")
+                else execWithTimeout(minOf(remaining, 4_000), *args)
+        }
         for (name in listOf("data", "obb")) {
             val root = "/storage/emulated/$userId/Android/$name"
-            val result = exec("du", "-k", "-d", "1", root)
+            val result = measure("du", "-k", "-d", "1", root)
             folders += RestrictedFolder.parse(result.stdout, root)
             if (!result.ok) incomplete = true
             // Android can hide newly installed packages from the parent directory
             // listing while allowing a known path. Measure installed user packages too.
             for (batch in packages.chunked(64)) {
-                val known = exec("du", "-k", "-s", *batch.map { "$root/$it" }.toTypedArray())
+                val known = measure("du", "-k", "-s", *batch.map { "$root/$it" }.toTypedArray())
                 folders += RestrictedFolder.parse(known.stdout, root)
                 // Most apps have no directory here. Missing paths are expected.
                 if (known.stderr.contains("Permission denied", ignoreCase = true) || known.exitCode == -1) incomplete = true

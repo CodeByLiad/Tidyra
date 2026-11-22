@@ -17,7 +17,8 @@ object CacheAutomation {
     fun resetUnsupported(context: Context) { context.getSharedPreferences("cache_automation", Context.MODE_PRIVATE).edit().remove("unsupported_backend").apply() }
     internal fun markUnsupported(context: Context) { context.getSharedPreferences("cache_automation", Context.MODE_PRIVATE).edit().putString("unsupported_backend", backend(context)).apply() }
     data class State(val connected: Boolean = false, val runId: Long = 0, val running: Boolean = false,
-        val current: String? = null, val total: Int = 0, val results: List<CacheBatch.Item> = emptyList(), val note: String? = null)
+        val current: String? = null, val total: Int = 0, val results: List<CacheBatch.Item> = emptyList(), val note: String? = null,
+        val viaShizuku: Boolean = false)
     private val mutable = MutableStateFlow(State())
     val state = mutable.asStateFlow()
     internal var service: CacheAccessibilityService? = null

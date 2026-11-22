@@ -93,14 +93,15 @@ class Organizer(historyFile: File? = null) {
         return Plan(moves, skipped)
     }
 
-    suspend fun apply(plan: Plan): Result = withContext(Dispatchers.IO) {
+    suspend fun apply(plan: Plan, onProgress: (Int, Int, String) -> Unit = { _, _, _ -> }): Result = withContext(Dispatchers.IO) {
       mutex.withLock {
         val records = history.recover()
         val batch = UUID.randomUUID().toString()
         val done = ArrayList<Move>()
         val failed = ArrayList<Pair<Move, String>>()
 
-        for (move in plan.moves) {
+        for ((index, move) in plan.moves.withIndex()) {
+            runCatching { onProgress(index, plan.moves.size, move.from.name) }
             var record: OrganizeHistory.Record? = null
             var renamed = false
             runCatching {
@@ -129,18 +130,20 @@ class Organizer(historyFile: File? = null) {
                 }
                 failed += move to (it.message ?: "Could not be moved")
             }
+            runCatching { onProgress(index + 1, plan.moves.size, move.from.name) }
         }
         Result(done, failed)
       }
     }
 
     /** Puts every moved file back where it was. The plan is its own undo record. */
-    suspend fun undo(result: Result): Int = withContext(Dispatchers.IO) {
+    suspend fun undo(result: Result, onProgress: (Int, Int, String) -> Unit = { _, _, _ -> }): Int = withContext(Dispatchers.IO) {
       mutex.withLock {
         val records = history.recover()
         var restored = 0
-        result.moved.forEach { move ->
-            val record = records.firstOrNull { it.move == move } ?: return@forEach
+        result.moved.forEachIndexed { index, move ->
+            runCatching { onProgress(index, result.moved.size, move.from.name) }
+            val record = records.firstOrNull { it.move == move } ?: return@forEachIndexed
             if (runCatching {
                 check(history.matches(move.to, record) && move.to.lastModified() == move.expectedModified) {
                     "Filed copy has changed; left alone"
@@ -155,6 +158,7 @@ class Organizer(historyFile: File? = null) {
             }.isSuccess) {
                 restored++
             }
+            runCatching { onProgress(index + 1, result.moved.size, move.from.name) }
         }
         restored
       }

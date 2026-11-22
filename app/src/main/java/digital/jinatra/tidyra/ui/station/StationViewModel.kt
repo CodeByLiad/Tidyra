@@ -34,6 +34,7 @@ import digital.jinatra.tidyra.core.cache.CacheAutomation
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.onEach
+import digital.jinatra.tidyra.core.model.OperationProgress
 
 data class StationState(
     val scanning: Boolean = false,
@@ -54,6 +55,7 @@ data class StationState(
     val trashEntries: List<digital.jinatra.tidyra.core.trash.TrashStore.Entry> = emptyList(),
     val lastResult: CleanupResult? = null,
     val working: Boolean = false,
+    val operation: OperationProgress? = null,
     val explaining: String? = null,
     val aiReady: Boolean = false,
     val retentionDays: Int = 14,
@@ -67,6 +69,7 @@ data class StationState(
     val cacheQueueIndex: Int = 0,
     val cacheNote: String? = null,
     val useCacheAutomation: Boolean = false,
+    val preferManualCache: Boolean = false,
     val cacheAutomationAvailable: Boolean = false,
     val cacheAutomationProblem: String? = null,
     val restrictedFolders: List<digital.jinatra.tidyra.core.shizuku.RestrictedFolder> = emptyList(),
@@ -209,30 +212,40 @@ class StationViewModel(app: Application) : AndroidViewModel(app) {
 
     fun restore(id: String) = restoreMany(listOf(id))
 
-    fun restoreMany(ids: Collection<String>) = perform {
-        val restored = ids.count { trash.restore(it) }
+    fun restoreMany(ids: Collection<String>) = perform("Restoring items") {
+        val entries = trash.contents().associateBy { it.id }
+        val approved = ids.distinct()
+        var restored = 0
+        approved.forEachIndexed { index, id ->
+            val name = entries[id]?.originalPath?.let { File(it).name }
+            report(OperationProgress("Restoring items", index, approved.size, name))
+            if (trash.restore(id) { done, total -> report(OperationProgress("Restoring items", index, approved.size, name, done, total)) }) restored++
+            report(OperationProgress("Restoring items", index + 1, approved.size, name))
+        }
         "$restored of ${ids.size} put back. Existing files were kept; restored copies use a new name when needed." +
             if (restored < ids.size) " Unrestored items remain in trash; check folder access and free space, then retry." else ""
     }
 
-    fun restoreAllFromTrash() = perform {
-        val total = trash.contents().size
-        val restored = trash.restoreAll()
-        "$restored of $total put back. Existing files were kept." +
-            if (restored < total) " Unrestored items remain in trash; check folder access and free space, then retry." else ""
+    fun restoreAllFromTrash() = restoreMany(_state.value.trashEntries.map { it.id })
+
+    private fun report(progress: OperationProgress) { _state.update { it.copy(operation = progress) } }
+
+    private suspend fun syncTrash() {
+        val entries = trash.contents()
+        _state.update { it.copy(trashBytes = Bytes(entries.sumOf { entry -> entry.size.value }), trashEntries = entries) }
     }
 
-    fun purgeMany(ids: Collection<String>) = perform { purgeMessage(trash.purge(ids)) }
-    fun emptyTrash() = perform { purgeMessage(trash.purgeAll()) }
+    fun purgeMany(ids: Collection<String>) = perform("Emptying Trash") { purgeMessage(trash.purge(ids, ::report)) }
+    fun emptyTrash() = purgeMany(_state.value.trashEntries.map { it.id })
 
     private fun purgeMessage(result: TrashStore.BatchResult) =
         "${result.count} removed from trash; ${Format.size(result.bytes)} freed." +
             if (result.failures.isEmpty()) "" else " ${result.failures.size} failed and remain listed. ${result.failures.first()}"
 
     /** Lock the controls before launching so rapid taps cannot queue duplicate mutations. */
-    private fun perform(action: suspend () -> String) {
+    private fun perform(label: String = "Updating", action: suspend () -> String) {
         if (_state.value.working || _state.value.scanning) return
-        _state.update { it.copy(working = true) }
+        _state.update { it.copy(working = true, operation = OperationProgress(label)) }
         viewModelScope.launch {
             try {
                 val message = action()
@@ -242,8 +255,10 @@ class StationViewModel(app: Application) : AndroidViewModel(app) {
             } catch (error: Exception) {
                 _state.update { it.copy(message = "Could not finish. Saved files were kept. ${error.message.orEmpty()}") }
             } finally {
-                _state.update { it.copy(working = false) }
-                refreshTrash()
+                kotlinx.coroutines.withContext(kotlinx.coroutines.NonCancellable) {
+                    runCatching { syncTrash() }
+                    _state.update { it.copy(working = false, operation = null) }
+                }
             }
         }
     }
@@ -290,13 +305,15 @@ class StationViewModel(app: Application) : AndroidViewModel(app) {
             val duplicateSets = duplicates.find(result.files)
 
             _state.update { it.copy(scanLabel = "Measuring apps") }
-            val apps = inventory.load()
+            var apps = inventory.load()
 
             val restricted = if (shizuku.state() == ShizukuBridge.State.READY) {
                 _state.update { it.copy(scanLabel = "Measuring restricted folders") }
                 shizuku.restrictedFolders()
             } else null
 
+            val installedNow = getApplication<Application>().packageManager.getInstalledApplications(0).map { it.packageName }.toSet()
+            apps = apps.filter { it.packageName in installedNow }
             val findings = buildList {
                 duplicates.toFinding(duplicateSets)?.let(::add)
                 addAll(result.findings)
@@ -374,7 +391,7 @@ class StationViewModel(app: Application) : AndroidViewModel(app) {
         val plan = _state.value.plan
         if (plan.itemCount == 0 || _state.value.working || _state.value.scanning) return
 
-        _state.update { it.copy(working = true) }
+        _state.update { it.copy(working = true, operation = OperationProgress("Moving to Trash")) }
         viewModelScope.launch {
             try {
 
@@ -382,7 +399,7 @@ class StationViewModel(app: Application) : AndroidViewModel(app) {
             // Shizuku cache clear), never by deleting files behind an app's back.
             val filePaths = plan.fileItems.map { it.path }
 
-            val result = trash.trash(filePaths, plan.fileItems.associateBy { it.path })
+            val result = trash.trash(filePaths, plan.fileItems.associateBy { it.path }, ::report)
             _state.update {
                 it.copy(
                     working = false,
@@ -397,7 +414,7 @@ class StationViewModel(app: Application) : AndroidViewModel(app) {
             } catch (error: Exception) {
                 _state.update { it.copy(message = "Cleanup stopped. Saved files were kept. ${error.message.orEmpty()}") }
             } finally {
-                _state.update { it.copy(working = false) }
+                _state.update { it.copy(working = false, operation = null) }
                 refreshTrash()
             }
         }
@@ -454,10 +471,14 @@ class StationViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    fun cancelCache() { cacheJob?.cancel() }
+    fun cancelCache() {
+        if (CacheAutomation.state.value.running && CacheAutomation.state.value.viaShizuku)
+            digital.jinatra.tidyra.core.cache.ShellCacheService.cancel(getApplication())
+        cacheJob?.cancel()
+    }
 
     fun useCacheAutomation(enabled: Boolean) {
-        if (!_state.value.working && !_state.value.scanning) _state.update { it.copy(useCacheAutomation = enabled,
+        if (!_state.value.working && !_state.value.scanning) _state.update { it.copy(useCacheAutomation = enabled, preferManualCache = !enabled,
             cacheAutomationProblem = CacheAutomation.unavailableReason(getApplication())) }
     }
 
@@ -470,7 +491,9 @@ class StationViewModel(app: Application) : AndroidViewModel(app) {
         cacheJob = viewModelScope.launch {
             var runId: Long? = null
             try {
-                runId = CacheAutomation.start(approved) ?: error("Enable Tidyra cache assistant in Accessibility first")
+                runId = if (shizuku.state() == digital.jinatra.tidyra.core.shizuku.ShizukuBridge.State.READY)
+                    digital.jinatra.tidyra.core.cache.ShellCacheService.start(getApplication(), approved)
+                else CacheAutomation.start(approved) ?: error("Enable Tidyra cache assistant in Accessibility first")
                 CacheAutomation.state.filter { it.runId == runId }.onEach { status ->
                     _state.update { it.copy(cacheProgress = CacheBatch.Progress(status.current, status.total, status.results),
                         cacheResults = status.results, cacheNote = status.note) }
@@ -524,22 +547,52 @@ class StationViewModel(app: Application) : AndroidViewModel(app) {
     private suspend fun refreshCacheMeasurements(packages: Set<String>) {
         runCatching { inventory.load(packages) }.onSuccess { measured ->
             val updated = measured.associateBy { it.packageName }
+            val capacity = capacityOnly()
             _state.update { current ->
                 val apps = current.apps.map { updated[it.packageName] ?: it }
                 val findings = current.findings.filterNot { it.kind == FindingKind.APP_CACHE }.toMutableList()
                 inventory.cacheFinding(apps)?.let(findings::add)
                 val visible = findings.firstOrNull { it.kind == FindingKind.APP_CACHE }?.items.orEmpty().map { it.path }.toSet()
-                current.copy(apps = apps, findings = findings.sortedByDescending { it.frees.value },
+                val snapshot = current.snapshot?.copy(freeBytes = capacity.freeBytes, takenAtMillis = capacity.takenAtMillis)
+                current.copy(apps = apps, snapshot = snapshot, findings = findings.sortedByDescending { it.frees.value },
                     selectedCachePackages = current.selectedCachePackages.intersect(visible),
-                    containers = buildContainers(current.snapshot, apps, findings, current.selectedItems))
+                    containers = buildContainers(snapshot, apps, findings, current.selectedItems))
             }
         }
     }
 
-    fun uninstallWithShizuku(packageName: String) = perform {
+    fun onPackageRemoved(packageName: String) {
+        val capacity = capacityOnly()
+        _state.update { current ->
+            val apps = current.apps.filterNot { it.packageName == packageName }
+            val findings = current.findings.filterNot { it.kind == FindingKind.APP_CACHE || it.kind == FindingKind.UNUSED_APP } +
+                listOfNotNull(inventory.cacheFinding(apps), inventory.unusedAppsFinding(apps))
+            val snapshot = current.snapshot?.copy(freeBytes = capacity.freeBytes, takenAtMillis = capacity.takenAtMillis)
+            current.copy(apps = apps, findings = findings.sortedByDescending { it.frees.value }, snapshot = snapshot,
+                selectedCachePackages = current.selectedCachePackages - packageName,
+                restrictedFolders = current.restrictedFolders.filterNot { it.path.endsWith("/$packageName") },
+                containers = buildContainers(snapshot, apps, findings, current.selectedItems))
+        }
+    }
+
+    fun reconcileInstalledApps() {
+        viewModelScope.launch {
+            val installed = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                getApplication<Application>().packageManager.getInstalledApplications(0).map { it.packageName }.toSet()
+            }
+            _state.value.apps.filterNot { it.packageName in installed }.forEach { onPackageRemoved(it.packageName) }
+        }
+    }
+
+    fun uninstallWithShizuku(packageName: String) = perform("Uninstalling app") {
+        val name = _state.value.apps.firstOrNull { it.packageName == packageName }?.label ?: packageName
         val result = shizuku.uninstall(packageName)
-        if (result.ok) "Uninstalled $packageName. Rescan to update sizes."
-        else "App was not uninstalled. ${result.stderr.ifBlank { result.stdout }}"
+        val stillInstalled = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            runCatching { getApplication<Application>().packageManager.getApplicationInfo(packageName, 0) }.isSuccess
+        }
+        if (!stillInstalled) { onPackageRemoved(packageName); "Uninstalled $name." }
+        else if (result.ok) "Android accepted the uninstall request. The list will update when removal finishes."
+        else "Android has not confirmed uninstalling $name. ${result.stderr.ifBlank { result.stdout }.take(180)}"
     }
 
     /**

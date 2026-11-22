@@ -63,6 +63,7 @@ fun ModelScreen(
 ) {
     val type = LocalStationType.current
     val colors = MaterialTheme.colorScheme
+    val links = androidx.compose.ui.platform.LocalUriHandler.current
 
     LazyColumn(
         modifier = modifier.fillMaxWidth(),
@@ -106,6 +107,8 @@ fun ModelScreen(
                     color = colors.onSurfaceVariant,
                     modifier = Modifier.padding(top = Module.half, bottom = Module.x2),
                 )
+                TextButton(onClick = { links.openUri("https://huggingface.co/litert-community/Gemma3-1B-IT") }) { Text("Accept Gemma licence") }
+                TextButton(onClick = { links.openUri("https://huggingface.co/settings/tokens") }) { Text("Create a read token") }
                 OutlinedTextField(
                     value = state.token,
                     onValueChange = onToken,

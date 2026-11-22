@@ -38,7 +38,8 @@ fun CacheDetailScreen(state: StationState, onToggle: (String, Boolean) -> Unit,
     val busy = state.working || state.scanning
     val queueApp = state.cacheQueue.getOrNull(state.cacheQueueIndex)
     val results = state.cacheResults.associateBy { it.packageName }
-    val automatic = state.canClearCache || (state.useCacheAutomation && state.cacheAutomationAvailable && state.cacheAutomationProblem == null)
+    val shellAutomatic = state.shizuku == digital.jinatra.tidyra.core.shizuku.ShizukuBridge.State.READY
+    val automatic = !state.preferManualCache && (state.canClearCache || shellAutomatic || (state.useCacheAutomation && state.cacheAutomationAvailable && state.cacheAutomationProblem == null))
     Column(modifier.fillMaxSize().navigationBarsPadding()) {
         Column(Modifier.padding(horizontal = Module.x3)) {
             TextButton(onClick = onBack, contentPadding = PaddingValues(0.dp)) { Text("‹ Back") }
@@ -46,11 +47,15 @@ fun CacheDetailScreen(state: StationState, onToggle: (String, Boolean) -> Unit,
             Text("${rows.size} apps · ${Format.size(Bytes(rows.sumOf { it.size.value }))}",
                 style = MaterialTheme.typography.bodyMedium, color = colors.onSurfaceVariant)
             Text(if (automatic) "Select apps to clear temporary files. App data and logins stay."
+                else if (state.preferManualCache) "Select apps to review in Settings, one at a time. Choose Clear cache; app data and logins stay."
                 else if (state.cacheAutomationProblem != null) state.cacheAutomationProblem + " Select apps to review one by one."
                 else "Android requires Settings on this setup. Select apps to review one by one; choose Clear cache, not Clear storage.",
                 style = MaterialTheme.typography.bodyMedium, color = colors.onSurfaceVariant,
                 modifier = Modifier.padding(top = Module.u, bottom = Module.u))
-            if (!state.canClearCache) Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            if (shellAutomatic) TextButton(enabled = !busy, onClick = if (state.preferManualCache) onConfigureAutomation else onUseManual) {
+                Text(if (state.preferManualCache) "Use automatic clearing" else "Use manual Settings")
+            }
+            if (!state.canClearCache && !shellAutomatic) Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Text("Automate Settings", Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
                 if (state.useCacheAutomation && !state.cacheAutomationAvailable) TextButton(onClick = onConfigureAutomation, enabled = !busy) { Text("Enable") }
                 Switch(checked = state.useCacheAutomation, enabled = !busy, modifier = Modifier.semantics { contentDescription = "Automate Settings" },

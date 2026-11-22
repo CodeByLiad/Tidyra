@@ -118,6 +118,12 @@ fun Root(
         if (station.cacheQueue.isNotEmpty() || station.cacheProgress != null) openFinding = "app-cache"
     }
     val detailOpen = cacheOpen || finding != null || openCategory != null
+    val download = model.entries.firstOrNull { it.downloading }
+    val operation = station.operation ?: organize.operation ?: apps.operation ?: model.operation
+        ?: download?.let { digital.jinatra.tidyra.core.model.OperationProgress("Downloading ${it.model.name}", bytesDone = it.downloaded.value, bytesTotal = it.model.downloadBytes.value) }
+        ?: if (station.scanning) digital.jinatra.tidyra.core.model.OperationProgress(station.scanLabel ?: "Scanning", current = "${station.filesSeen} files checked")
+        else if (model.loading) digital.jinatra.tidyra.core.model.OperationProgress("Preparing model")
+        else if (station.explaining != null) digital.jinatra.tidyra.core.model.OperationProgress("Writing explanation") else null
 
     BackHandler(enabled = detailOpen) {
         openFinding = null
@@ -187,6 +193,7 @@ fun Root(
                 )
             }
             }
+            digital.jinatra.tidyra.ui.common.OperationStatus(operation)
             if (!cacheOpen) ApprovalFooter(station, callbacks)
             return@Column
         }
@@ -282,6 +289,7 @@ fun Root(
             }
         }
 
+        digital.jinatra.tidyra.ui.common.OperationStatus(operation)
         ApprovalFooter(station, callbacks)
     }
     SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).navigationBarsPadding())
@@ -443,7 +451,7 @@ private fun SectionTabs(current: Section, onSelect: (Section) -> Unit) {
 
 /** One bag of callbacks so the root signature stays readable as sections are added. */
 data class RootCallbacks(
-    val onRefreshApps: () -> Unit,
+    val onRefreshApps: (Boolean) -> Unit,
     val onStopRuntime: (String, String?) -> Unit,
     val onDismissAppsMessage: () -> Unit,
     val onScan: () -> Unit,

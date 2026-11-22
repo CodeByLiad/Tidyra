@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
+import digital.jinatra.tidyra.core.model.OperationProgress
 
 data class OrganizeState(
     val root: File = Environment.getExternalStorageDirectory(),
@@ -25,6 +26,7 @@ data class OrganizeState(
     val lastResult: Organizer.Result? = null,
     val working: Boolean = false,
     val actionLabel: String = "Reading files",
+    val operation: OperationProgress? = null,
     val message: String? = null,
     val pickingFor: Set<String> = emptySet(),
     val destinationDirectory: File? = null,
@@ -178,7 +180,9 @@ class OrganizeViewModel(app: Application) : AndroidViewModel(app) {
         val plan = _state.value.reviewPlan ?: return
         if (plan.moves.isEmpty()) return
         operate("Moving files") {
-            val result = organizer.apply(plan)
+            val result = organizer.apply(plan) { done, total, name ->
+                _state.update { it.copy(operation = OperationProgress("Moving files", done, total, name)) }
+            }
             val pending = organizer.pending()
             _state.update { it.copy(lastResult = pending, reviewPlan = null,
                 message = "${result.moved.size} moved." + if (result.failed.isEmpty()) "" else
@@ -190,7 +194,9 @@ class OrganizeViewModel(app: Application) : AndroidViewModel(app) {
     fun undo() {
         val result = _state.value.lastResult ?: return
         operate("Putting files back") {
-            val restored = organizer.undo(result)
+            val restored = organizer.undo(result) { done, total, name ->
+                _state.update { it.copy(operation = OperationProgress("Restoring filed items", done, total, name)) }
+            }
             val pending = organizer.pending()
             _state.update { it.copy(lastResult = pending, reviewPlan = null,
                 message = "$restored restored." +
@@ -201,11 +207,11 @@ class OrganizeViewModel(app: Application) : AndroidViewModel(app) {
 
     private fun operate(label: String, action: suspend () -> Unit) {
         if (_state.value.working) return
-        _state.update { it.copy(working = true, actionLabel = label) }
+        _state.update { it.copy(working = true, actionLabel = label, operation = OperationProgress(label)) }
         viewModelScope.launch {
             try { action() } catch (cancelled: CancellationException) { throw cancelled }
             catch (error: Exception) { _state.update { it.copy(message = error.message ?: "Could not finish. Files and undo records were kept.") } }
-            finally { _state.update { it.copy(working = false) } }
+            finally { _state.update { it.copy(working = false, operation = null) } }
         }
     }
 }

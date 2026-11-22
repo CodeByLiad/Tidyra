@@ -1,6 +1,57 @@
 # Resume Tidyra here
 
-Checkpoint: 2026-11-17. Release 0.1.3 adds cache selection, bounded commands, manual review and optional Settings automation. Minimum Android 11, compile/target SDK 36.
+Checkpoint: 2026-11-22. The 0.1.4 candidate adds Shizuku-powered native Settings batches, shared operation progress, live uninstall updates and clearer Trash actions. Minimum Android 11, compile/target SDK 36.
+
+## 0.1.4 automatic Settings batches and operation feedback
+
+Checkpoint: 2026-11-22. Version code 5. The user requested emulator checks first;
+physical Pixel verification of the new shell Settings backend is still pending.
+
+Stock ADB Shizuku lacks INTERNAL_DELETE_CACHE_FILES. Direct-command preflight stays
+in place. A confirmed selected batch can now use a shell-UID app_process helper
+with platform UiAutomation, hosted by a finite special-use foreground service.
+The app Accessibility service remains isAccessibilityTool=false. No disability
+declaration or app-data/global-trim fallback was added. Native app identity,
+unique label, localized cache action, protection policy and lock checks gate taps.
+An explicit START signal is required. Cancellation sends a stop byte before pipe
+closure (Shizuku may retain a duplicate descriptor); remote cleanup is asynchronous
+and bounded. Shizuku also links remote-process lifetime to client binder death.
+Unknown screens stay untouched. The manual queue remains explicitly selectable.
+
+Android 17 emulator verification removed both disposable fixture caches while
+preserving internal/external keep markers, rejected protected targets, deduplicated
+selection, refused action without START, and preserved unrequested cache on cancel.
+LiveUpdatesTest verified an uninstall removes its row without a scan and seeded
+two disposable Trash preview items with measured progress. Never clear existing
+QA Trash to repeat that preview test; restore its samples through the UI first.
+The existing deviceTest continuation harness is used by optimized tests, avoiding
+test-only coroutine facade retention in the production APK. Optimized verification
+and final packaging are the current remaining release checks.
+
+The new API 37 emulator requires current SDK tools (22.0 was installed). Old tools
+19.0 silently created target=android-0, causing a graphics crash loop. The working
+isolated AVD is Tidyra_API37_Current on emulator-5556, created with target=android-37.0
+in both the AVD index and config. Do not change unrelated AVDs. Android 17's
+Context KeyguardManager also fails in standalone app_process due to uninitialized
+ApplicationSharedMemory; ShellCacheMain queries IWindowManager lock state directly.
+
+Shared operation feedback covers Trash copy/restore/purge, organising/undo, scans,
+app operations, model loading/import and downloads. Counts/bytes are measured and
+unknown totals remain indeterminate. Package events and resume reconciliation remove
+uninstalled rows/findings immediately; free capacity refreshes after uninstall and
+cache batches. Scans filter a fresh installed-package set before publication.
+Running reads are independent with 4s/7s limits; restricted measurement has a 12s
+budget and partial-result notice. Installed-list refresh never runs dumpsys.
+
+Trash has a fixed bottom action area, stronger outlines, warm tonal Restore buttons,
+and the existing permanent-deletion confirmation. Zero-byte entries do not imply
+reclaimable space. Mobbin references: Speechify Deleted files and Google Drive Trash;
+the native cream/ink/crimson design remains authoritative. Gemma now explains missing
+token/licence access before download and links to official licence/token pages.
+
+87 JVM tests pass; Android lint had no errors before the final lifecycle hardening.
+Logs are under ignored build/nov22-*. Signing material remains in ignored .signing;
+the original production certificate is unchanged. Do not expose or commit it.
 
 ## 0.1.3 cache review and optional automation
 
