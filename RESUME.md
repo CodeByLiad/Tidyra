@@ -15,6 +15,11 @@ session rather than continuing UI changes today:
   concise per-app outcomes. Do not require View app results to reveal them. Preserve
   REQUESTED versus CONFIRMED, failed/unattempted reasons, Done, and cleared selection;
   do not restore the verbose repeated native command log.
+- Duplicate files: add a grouped overview/comparison so users can see which files
+  duplicate one another, with previews where applicable and clear names, locations,
+  sizes and a marked copy to keep. Let users explicitly select duplicate copies for
+  removal while preserving at least one copy; show the selection and reclaimable
+  space before confirmation. Owner requested this for the next session as well.
 
 ## 0.1.6 distribution and final Pixel check
 
