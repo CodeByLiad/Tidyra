@@ -8,6 +8,8 @@ Physical Pixel testing verified automatic two-app cache clearing, protected-targ
 
 The phone pass found that the shared progress footer overlapped the gesture area. It now respects the bottom system inset and uses the warm theme's neutral progress track in both light and dark modes.
 
+The corrected signed build was verified on the Pixel in light and dark themes. Its normal UI cleared exactly two selected disposable app caches automatically, showed foreground progress, and preserved their saved data. The phone UI also passed custom-album creation, reviewed image moves, Undo after restart, selected Trash restore, cancelled deletion and confirmed Empty trash, using generated samples only.
+
 ## Automatic selected-app cache clearing
 
 - Stock Shizuku shell setups can now step through Android Settings automatically for the apps you select and confirm. No manual visit to each app is needed on recognized layouts. Direct cache-only commands remain available where Android actually permits them.

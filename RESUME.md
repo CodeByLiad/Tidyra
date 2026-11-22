@@ -18,7 +18,17 @@ The production read-only scan showed real progress, but its shared footer overla
 the gesture bar and inherited a purple default track. Version 0.1.5 / code 6 adds
 bottom system padding when no approval footer owns it, and completes the warm
 secondary-container theme colors. Other app/file mutation policies are unchanged.
-Physical confirmation and final signed installation follow this correction.
+The corrected signed 0.1.5 build installed in place and the progress footer was
+confirmed above the Pixel gesture area in light and dark themes. ShellCacheTest
+passed again on 0.1.5. The signed production UI selected exactly the two fixture
+apps, requested notification access, displayed its foreground cache service, cleared
+both caches automatically, returned to Tidyra, and preserved both saved-data markers.
+The actual Organise UI previewed the generated picture, created/chose its custom
+album, reviewed From/To paths, moved it, and restored identical bytes with Undo
+after force-stop/relaunch. QA Trash UI passed selected restore, cancelled permanent
+delete, confirmed Empty trash, and unchanged restored sample content.
+TrashUiFixtureTest explicitly refuses nonempty QA Trash and seeds only owned samples;
+it requires tidyra.trashUiFixture=true and must never target production.
 Evidence remains under ignored build/pixel-nov22-*. No real app caches were cleared,
 no real apps uninstalled, and existing private Trash was not emptied.
 
