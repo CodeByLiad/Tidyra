@@ -126,6 +126,7 @@ fun Root(
         else if (station.explaining != null) digital.jinatra.tidyra.core.model.OperationProgress("Writing explanation") else null
 
     BackHandler(enabled = detailOpen) {
+        if (cacheOpen) callbacks.onDismissCacheResults()
         openFinding = null
         openCategory = null
     }
@@ -153,6 +154,7 @@ fun Root(
                     callbacks.onToggleCache, callbacks.onSelectAllCache, callbacks.onRequestCaches,
                     callbacks.onCancelCache, callbacks.onNextCacheSettings, callbacks.onEndCacheSettings,
                     callbacks.onOpenCacheSettings, callbacks.onConfigureCacheAutomation, callbacks.onUseManualCache,
+                    onDismissResults = callbacks.onDismissCacheResults,
                     onBack = { openFinding = null }, modifier = Modifier.weight(1f))
             } else if (finding != null) {
                 FindingDetailScreen(
@@ -479,6 +481,7 @@ data class RootCallbacks(
     val onCancelCache: () -> Unit,
     val onNextCacheSettings: () -> Unit,
     val onEndCacheSettings: () -> Unit,
+    val onDismissCacheResults: () -> Unit,
     val onOpenCacheSettings: (String) -> Unit,
     val onConfigureCacheAutomation: () -> Unit,
     val onUseManualCache: () -> Unit,

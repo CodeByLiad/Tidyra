@@ -143,6 +143,7 @@ class MainActivity : ComponentActivity() {
                         onCancelCache = stationModel::cancelCache,
                         onNextCacheSettings = { stationModel.nextCacheSettings()?.let(::openCacheSettings) },
                         onEndCacheSettings = stationModel::finishCacheSettings,
+                        onDismissCacheResults = stationModel::dismissCacheResults,
                         onOpenCacheSettings = ::openCacheSettings,
                         onConfigureCacheAutomation = {
                             if (stationModel.shizuku.state() == digital.jinatra.tidyra.core.shizuku.ShizukuBridge.State.READY) stationModel.useCacheAutomation(true)

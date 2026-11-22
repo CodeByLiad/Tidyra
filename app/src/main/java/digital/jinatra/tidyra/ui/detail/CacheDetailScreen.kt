@@ -5,16 +5,19 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import digital.jinatra.tidyra.core.model.Bytes
+import digital.jinatra.tidyra.core.cache.CacheBatch
 import digital.jinatra.tidyra.core.model.FindingKind
 import digital.jinatra.tidyra.ui.common.AppIcon
 import digital.jinatra.tidyra.ui.format.Format
@@ -28,7 +31,7 @@ fun CacheDetailScreen(state: StationState, onToggle: (String, Boolean) -> Unit,
     onSelectAll: (Boolean) -> Unit, onRequest: (List<String>) -> Unit, onCancel: () -> Unit,
     onNextSettings: () -> Unit, onEndSettings: () -> Unit, onSettings: (String) -> Unit,
     onConfigureAutomation: () -> Unit, onUseManual: () -> Unit,
-    onBack: () -> Unit, modifier: Modifier = Modifier) {
+    onDismissResults: () -> Unit, onBack: () -> Unit, modifier: Modifier = Modifier) {
     val colors = MaterialTheme.colorScheme
     val rows = state.findings.firstOrNull { it.kind == FindingKind.APP_CACHE }?.items.orEmpty()
     val apps = state.apps.associateBy { it.packageName }
@@ -37,7 +40,10 @@ fun CacheDetailScreen(state: StationState, onToggle: (String, Boolean) -> Unit,
     val all = eligible.isNotEmpty() && eligible.all { it.path in state.selectedCachePackages }
     val busy = state.working || state.scanning
     val queueApp = state.cacheQueue.getOrNull(state.cacheQueueIndex)
-    val results = state.cacheResults.associateBy { it.packageName }
+    if (!state.working && state.cacheProgress == null && queueApp == null && state.cacheResults.isNotEmpty()) {
+        CacheResults(state, onDismissResults, onDone = { onDismissResults(); onBack() }, modifier)
+        return
+    }
     val shellAutomatic = state.shizuku == digital.jinatra.tidyra.core.shizuku.ShizukuBridge.State.READY
     val automatic = !state.preferManualCache && (state.canClearCache || shellAutomatic || (state.useCacheAutomation && state.cacheAutomationAvailable && state.cacheAutomationProblem == null))
     Column(modifier.fillMaxSize().navigationBarsPadding()) {
@@ -96,7 +102,7 @@ fun CacheDetailScreen(state: StationState, onToggle: (String, Boolean) -> Unit,
                     // A sibling action stays outside the checkbox touch target.
                         TextButton(onClick = { onSettings(item.path) }, enabled = !busy) { Text("Settings") }
                     }
-                    (results[item.path]?.detail ?: blocked)?.let {
+                    blocked?.let {
                         Text(it, style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant,
                             modifier = Modifier.padding(start = Module.x3, end = Module.x3, bottom = Module.u))
                     }
@@ -106,19 +112,10 @@ fun CacheDetailScreen(state: StationState, onToggle: (String, Boolean) -> Unit,
             if (rows.isEmpty()) item {
                 Text("No app cache above 1 MB in the latest measurement.", Modifier.padding(Module.x3))
             }
-            if (state.cacheResults.isNotEmpty()) item {
-                // Keep outcomes visible even when cleared apps disappear below the scan threshold.
-                Column(Modifier.padding(Module.x3)) {
-                    state.cacheResults.filter { result -> rows.none { it.path == result.packageName } }.forEach { result ->
-                        Text("${apps[result.packageName]?.label ?: result.packageName}: ${result.detail}",
-                            style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(bottom = Module.u))
-                    }
-                }
-            }
         }
         HorizontalDivider()
         Column(Modifier.fillMaxWidth().padding(horizontal = Module.x3, vertical = Module.u)) {
-            state.cacheNote?.takeUnless { it == state.cacheAutomationProblem }?.let {
+            state.cacheNote?.takeUnless { it == state.cacheAutomationProblem || state.cacheProgress != null }?.let {
                 Text(it, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(bottom = Module.u))
             }
             when {
@@ -146,6 +143,77 @@ fun CacheDetailScreen(state: StationState, onToggle: (String, Boolean) -> Unit,
                     Text(if (busy) "Updating…" else if (automatic) "Clear selected cache" else "Open selected settings")
                 }
             }
+        }
+    }
+}
+
+/** Outcomes stay separate from the refreshed inventory: a request is not proof of clearing. */
+@Composable
+private fun CacheResults(state: StationState, onReview: () -> Unit, onDone: () -> Unit,
+    modifier: Modifier = Modifier) {
+    val colors = MaterialTheme.colorScheme
+    val results = state.cacheResults.distinctBy { it.packageName }
+    val confirmed = results.count { it.status == CacheBatch.Status.CONFIRMED }
+    val requested = results.count { it.status == CacheBatch.Status.REQUESTED }
+    val pending = results.size - confirmed - requested
+    val apps = state.apps.associateBy { it.packageName }
+    var expanded by rememberSaveable(results) { mutableStateOf(false) }
+    Column(modifier.fillMaxSize().navigationBarsPadding()) {
+        TextButton(onClick = onDone, contentPadding = PaddingValues(0.dp),
+            modifier = Modifier.padding(horizontal = Module.x3)) { Text("‹ Back") }
+        LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(horizontal = Module.x3, vertical = Module.x3)) {
+            item {
+                Text(if (pending == 0) "Cache review complete" else "Cache review finished",
+                    style = LocalStationType.current.section, modifier = Modifier.semantics { heading() })
+                val counts = buildList {
+                    if (confirmed > 0) add("$confirmed confirmed")
+                    if (requested > 0) add("$requested requested")
+                    if (pending > 0) add("$pending need review")
+                }
+                Text(counts.joinToString(" · "), style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.padding(top = Module.x2))
+                Text(when {
+                    requested > 0 && confirmed > 0 -> "Android confirmed $confirmed. Requests sent through Settings are not independently confirmed."
+                    requested > 0 -> "Requests sent through Android Settings. Clearing is not independently confirmed."
+                    confirmed > 0 -> "Android confirmed cache clearing."
+                    else -> "No cache clearing was confirmed. Review the app results before trying again."
+                }, style = MaterialTheme.typography.bodyMedium, color = colors.onSurfaceVariant,
+                    modifier = Modifier.padding(top = Module.u))
+                Text("App data and logins stay.", style = MaterialTheme.typography.bodyMedium,
+                    color = colors.onSurfaceVariant, modifier = Modifier.padding(top = Module.u, bottom = Module.x3))
+                HorizontalDivider()
+                TextButton(onClick = { expanded = !expanded }, contentPadding = PaddingValues(0.dp),
+                    modifier = Modifier.fillMaxWidth().semantics {
+                        stateDescription = if (expanded) "Expanded" else "Collapsed"
+                    }) {
+                    Text(if (expanded) "Hide app results" else "View app results (${results.size})", Modifier.weight(1f))
+                }
+            }
+            if (expanded) items(results, key = { it.packageName }) { result ->
+                Column(Modifier.fillMaxWidth().padding(vertical = Module.u)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        AppIcon(result.packageName, 36.dp)
+                        Column(Modifier.weight(1f).padding(start = Module.x2)) {
+                            Text(apps[result.packageName]?.label ?: result.packageName,
+                                style = MaterialTheme.typography.bodyLarge)
+                            Text(when (result.status) {
+                                CacheBatch.Status.CONFIRMED -> "Cleared · confirmed"
+                                CacheBatch.Status.REQUESTED -> "Clear requested"
+                                CacheBatch.Status.FAILED -> "Couldn’t clear"
+                                CacheBatch.Status.NOT_ATTEMPTED -> "Not confirmed"
+                            }, style = MaterialTheme.typography.bodyMedium, color = colors.onSurfaceVariant)
+                        }
+                    }
+                    if (result.status == CacheBatch.Status.FAILED || result.status == CacheBatch.Status.NOT_ATTEMPTED)
+                        Text(result.detail, style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant,
+                            modifier = Modifier.padding(start = 52.dp, top = Module.u))
+                }
+                HorizontalDivider()
+            }
+        }
+        Column(Modifier.fillMaxWidth().padding(horizontal = Module.x3, vertical = Module.u)) {
+            TextButton(onClick = onReview, modifier = Modifier.fillMaxWidth()) { Text("Review remaining apps") }
+            Button(onClick = onDone, modifier = Modifier.fillMaxWidth()) { Text("Done") }
         }
     }
 }

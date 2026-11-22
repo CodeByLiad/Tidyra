@@ -1,8 +1,34 @@
 # Resume Tidyra here
 
-Checkpoint: 2026-11-22. Version 0.1.5 adds the Pixel-tested progress safe-area correction to 0.1.4's Shizuku Settings batches, shared operation progress, live uninstall updates and clearer Trash actions. Minimum Android 11, compile/target SDK 36.
+Checkpoint: 2026-11-22. Version 0.1.6 / code 7 adds compact cache results, expandable app details, Done and reset selection. It retains 0.1.5's Pixel-tested progress safe-area correction and automatic Shizuku Settings batches. Minimum Android 11, compile/target SDK 36.
 
 ## 0.1.5 physical Pixel verification
+
+### 0.1.6 cache-results refinement
+
+The owner disconnected the Pixel and requested emulator testing. CacheDetailScreen
+now separates a completed batch from cache selection: one compact outcome summary,
+collapsed app results, Done, and Review remaining apps. REQUESTED is never presented
+as CONFIRMED; failures/unattempted items retain their reasons in the expanded list.
+Successful native command detail is no longer repeated per app. Dismissing results
+clears the old selection, and Android Back also dismisses the completed summary.
+Running progress and manual Settings review remain available.
+
+Android 17 / API 37 emulator Tidyra_API37_Current: 87 unit tests pass; lintDebug
+passes without errors. The opt-in
+CacheResultsUiTest passes a display-only 17-app batch, expand/collapse, Done/review
+callbacks, mixed outcomes in dark mode at 1.5x text, and the running Cancel action.
+ShellCacheTest passes real two-fixture clearing, protected targets, duplicate
+selection, no START/no click, cancellation, and internal/external data preservation.
+The actual UI selected only the two disposable fixture apps, completed the batch,
+showed 2 requested, and Review remaining apps returned to 4 cache rows (from 6)
+with zero selected; all four saved-data markers were intact. No physical-phone test
+or installation was performed for this refinement. Existing QA Trash was preserved.
+Evidence: ignored build/cache-ui-*.txt and build/cache-{summary,details}-*.png.
+Reference reviewed: [Google Photos cleanup completion](https://mobbin.com/screens/4613e863-fef1-4a17-8c3b-15f8a3b18025),
+using its clear completion action while retaining Tidyra's cream/ink/crimson theme.
+
+### Published build verification
 
 The signed 0.1.4 APK installed in place on the Pixel 10 Pro / Android 17. Optimized
 ShellCacheTest passed on the phone: two selected fixture caches removed, both

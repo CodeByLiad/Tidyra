@@ -477,6 +477,11 @@ class StationViewModel(app: Application) : AndroidViewModel(app) {
         cacheJob?.cancel()
     }
 
+    fun dismissCacheResults() {
+        if (_state.value.working || _state.value.cacheProgress != null) return
+        _state.update { it.copy(cacheResults = emptyList(), cacheNote = null, selectedCachePackages = emptySet()) }
+    }
+
     fun useCacheAutomation(enabled: Boolean) {
         if (!_state.value.working && !_state.value.scanning) _state.update { it.copy(useCacheAutomation = enabled, preferManualCache = !enabled,
             cacheAutomationProblem = CacheAutomation.unavailableReason(getApplication())) }
