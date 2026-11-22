@@ -34,6 +34,7 @@ data class ModelState(
         val downloading: Boolean = false,
         val progress: Float = 0f,
         val downloaded: Bytes = Bytes.ZERO,
+        val downloadTotal: Bytes = Bytes.ZERO,
         val error: String? = null,
     )
 }
@@ -96,13 +97,13 @@ class ModelViewModel(app: Application) : AndroidViewModel(app) {
             return
         }
         downloadJob = viewModelScope.launch {
-            updateEntry(model.id) { it.copy(downloading = true, error = null) }
+            updateEntry(model.id) { it.copy(downloading = true, error = null, progress = 0f, downloaded = Bytes.ZERO, downloadTotal = Bytes.ZERO) }
 
             downloader.download(model, _state.value.token.takeIf { it.isNotBlank() }).collect { progress ->
                 when (progress) {
                     is ModelDownloader.Progress.Downloading ->
                         updateEntry(model.id) {
-                            it.copy(progress = progress.fraction, downloaded = progress.downloaded)
+                            it.copy(progress = progress.fraction, downloaded = progress.downloaded, downloadTotal = progress.total)
                         }
 
                     is ModelDownloader.Progress.Done -> {

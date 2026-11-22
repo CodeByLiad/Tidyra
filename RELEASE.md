@@ -20,7 +20,7 @@ Signed update for Android 11 and newer. Package: `digital.jinatra.tidyra`, versi
 
 ## Validation and limits
 
-87 JVM tests pass. Android 17 emulator tests verified two selected disposable caches were removed automatically, duplicate selection, preserved internal/external saved-data markers, protected-target rejection, no action without the parent confirmation signal, cancellation, live uninstall updates without a rescan, and Trash progress callbacks.
+87 JVM tests pass, and Android lint reports no errors. Optimized Android 17 emulator tests verified two selected disposable caches were removed automatically, duplicate selection, preserved internal/external saved-data markers, protected-target rejection, no action without the parent confirmation signal, cancellation, visible uninstall updates without a rescan, and isolated Trash progress/restore. Six Shizuku regression checks passed; the optional system-uninstall-dialog check was skipped. The signed production APK also completed the normal select/confirm/automatic Settings/return flow for both disposable apps, preserving their saved data and leaving unselected rows unchanged.
 
 Physical Pixel verification of this new route is pending; the user requested emulator checks first. This release does not claim compatibility with every OEM Settings layout. Unrecognized screens remain untouched. Personal app caches were not used for testing.
 

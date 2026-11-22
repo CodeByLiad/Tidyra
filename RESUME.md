@@ -1,6 +1,6 @@
 # Resume Tidyra here
 
-Checkpoint: 2026-11-22. The 0.1.4 candidate adds Shizuku-powered native Settings batches, shared operation progress, live uninstall updates and clearer Trash actions. Minimum Android 11, compile/target SDK 36.
+Checkpoint: 2026-11-22. Version 0.1.4 adds Shizuku-powered native Settings batches, shared operation progress, live uninstall updates and clearer Trash actions. Minimum Android 11, compile/target SDK 36.
 
 ## 0.1.4 automatic Settings batches and operation feedback
 
@@ -21,12 +21,18 @@ Unknown screens stay untouched. The manual queue remains explicitly selectable.
 Android 17 emulator verification removed both disposable fixture caches while
 preserving internal/external keep markers, rejected protected targets, deduplicated
 selection, refused action without START, and preserved unrequested cache on cancel.
-LiveUpdatesTest verified an uninstall removes its row without a scan and seeded
-two disposable Trash preview items with measured progress. Never clear existing
-QA Trash to repeat that preview test; restore its samples through the UI first.
+LiveUpdatesTest verified the visible uninstall row disappears without a scan and
+checked measured Trash progress/restore using a fresh isolated cache-directory ledger.
+It traverses Compose accessibility nodes rather than using framework text queries,
+which do not resolve Compose virtual nodes. Existing QA Trash is never emptied by
+this repeatable test. Earlier disposable preview samples remain in QA Trash unless
+restored through the UI; never uninstall that QA package merely to repeat a test.
 The existing deviceTest continuation harness is used by optimized tests, avoiding
 test-only coroutine facade retention in the production APK. Optimized verification
-and final packaging are the current remaining release checks.
+passed, including automatic clearing/cancellation, live uninstall and Trash progress.
+Six Shizuku regressions passed; the optional OS uninstall-dialog check was skipped.
+The signed production APK completed the normal two-app batch flow with both caches
+removed, both internal/external markers intact and unselected cache rows unchanged.
 
 The new API 37 emulator requires current SDK tools (22.0 was installed). Old tools
 19.0 silently created target=android-0, causing a graphics crash loop. The working
@@ -49,7 +55,8 @@ reclaimable space. Mobbin references: Speechify Deleted files and Google Drive T
 the native cream/ink/crimson design remains authoritative. Gemma now explains missing
 token/licence access before download and links to official licence/token pages.
 
-87 JVM tests pass; Android lint had no errors before the final lifecycle hardening.
+87 JVM tests pass; Android lint reports no errors. Download progress uses actual
+server-reported totals, with an indeterminate bar until a total is known.
 Logs are under ignored build/nov22-*. Signing material remains in ignored .signing;
 the original production certificate is unchanged. Do not expose or commit it.
 

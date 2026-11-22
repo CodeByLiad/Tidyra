@@ -120,7 +120,7 @@ fun Root(
     val detailOpen = cacheOpen || finding != null || openCategory != null
     val download = model.entries.firstOrNull { it.downloading }
     val operation = station.operation ?: organize.operation ?: apps.operation ?: model.operation
-        ?: download?.let { digital.jinatra.tidyra.core.model.OperationProgress("Downloading ${it.model.name}", bytesDone = it.downloaded.value, bytesTotal = it.model.downloadBytes.value) }
+        ?: download?.let { digital.jinatra.tidyra.core.model.OperationProgress("Downloading ${it.model.name}", bytesDone = it.downloaded.value, bytesTotal = it.downloadTotal.value.takeIf { total -> total > 0 }) }
         ?: if (station.scanning) digital.jinatra.tidyra.core.model.OperationProgress(station.scanLabel ?: "Scanning", current = "${station.filesSeen} files checked")
         else if (model.loading) digital.jinatra.tidyra.core.model.OperationProgress("Preparing model")
         else if (station.explaining != null) digital.jinatra.tidyra.core.model.OperationProgress("Writing explanation") else null
@@ -239,7 +239,7 @@ fun Root(
                     onUninstall = callbacks.onUninstall,
                     onOpenAppSettings = callbacks.onOpenAppSettings,
                     onClearCache = callbacks.onClearCache,
-                    canClearCache = station.canClearCache,
+                    canClearCache = !station.preferManualCache && (station.canClearCache || station.shizuku == digital.jinatra.tidyra.core.shizuku.ShizukuBridge.State.READY),
                     working = station.working || station.scanning,
                     onGrantUsage = callbacks.onGrantUsage,
                     onRefresh = callbacks.onRefreshApps,
