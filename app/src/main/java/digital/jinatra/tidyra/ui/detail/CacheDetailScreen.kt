@@ -1,6 +1,8 @@
 package digital.jinatra.tidyra.ui.detail
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.text.BasicText
+import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.selection.toggleable
@@ -14,6 +16,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import digital.jinatra.tidyra.core.model.Bytes
 import digital.jinatra.tidyra.core.cache.CacheBatch
 import digital.jinatra.tidyra.core.model.FindingKind
@@ -131,7 +134,8 @@ fun CacheDetailScreen(state: StationState, onToggle: (String, Boolean) -> Unit,
                     val progress = state.cacheProgress
                     LinearProgressIndicator(progress = { progress.results.size.toFloat() / progress.total.coerceAtLeast(1) }, modifier = Modifier.fillMaxWidth())
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                        Text("${progress.results.size} of ${progress.total} · ${apps[progress.current]?.label ?: "Preparing"}",
+                        val current = if (progress.results.size >= progress.total) "Measuring space saved" else apps[progress.current]?.label ?: "Preparing"
+                        Text("${progress.results.size} of ${progress.total} · $current",
                             Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
                         TextButton(onClick = onCancel) { Text("Cancel") }
                     }
@@ -162,6 +166,15 @@ private fun CacheResults(state: StationState, onReview: () -> Unit, onDone: () -
             item {
                 Text(if (pending == 0) "Cache review complete" else "Cache review finished",
                     style = LocalStationType.current.section, modifier = Modifier.semantics { heading() })
+                val savings = state.cacheSavings
+                if (savings != null) {
+                    BasicText(Format.size(savings.saved), style = LocalStationType.current.figure.copy(color = colors.primary),
+                        maxLines = 1, autoSize = TextAutoSize.StepBased(minFontSize = 24.sp,
+                            maxFontSize = LocalStationType.current.figure.fontSize),
+                        modifier = Modifier.fillMaxWidth().padding(top = Module.x2))
+                    Text("Space saved from app cache", style = MaterialTheme.typography.titleMedium)
+                } else Text("Space saved unavailable", style = MaterialTheme.typography.titleMedium,
+                    color = colors.onSurfaceVariant, modifier = Modifier.padding(top = Module.x2))
                 val counts = buildList {
                     if (confirmed > 0) add("$confirmed confirmed")
                     if (requested > 0) add("$requested requested")
@@ -170,6 +183,8 @@ private fun CacheResults(state: StationState, onReview: () -> Unit, onDone: () -
                 Text(counts.joinToString(" · "), style = MaterialTheme.typography.titleMedium,
                     modifier = Modifier.padding(top = Module.x2))
                 Text(when {
+                    savings != null && savings.saved.value == 0L -> "No reduction measured yet. Android may update cache sizes later."
+                    savings != null -> "Measured for ${Format.count(savings.appCount, "app")}. Cache can rebuild as you use them."
                     requested > 0 && confirmed > 0 -> "Android confirmed $confirmed. Requests sent through Settings are not independently confirmed."
                     requested > 0 -> "Requests sent through Android Settings. Clearing is not independently confirmed."
                     confirmed > 0 -> "Android confirmed cache clearing."

@@ -21,8 +21,8 @@ android {
         applicationId = "digital.jinatra.tidyra"
         minSdk = 30
         targetSdk = 36
-        versionCode = 8
-        versionName = "0.1.7"
+        versionCode = 9
+        versionName = "0.1.8"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         manifestPlaceholders["tidyraLabel"] = "@string/app_name"
         vectorDrawables.useSupportLibrary = true

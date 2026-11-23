@@ -13,6 +13,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Density
 import androidx.test.platform.app.InstrumentationRegistry
 import digital.jinatra.tidyra.core.cache.CacheBatch
+import digital.jinatra.tidyra.core.cache.CacheSavings
 import digital.jinatra.tidyra.core.model.Bytes
 import digital.jinatra.tidyra.core.scan.AppInventory
 import digital.jinatra.tidyra.ui.MainActivity
@@ -98,7 +99,11 @@ class CacheResultsUiTest {
             }
             instrumentation.waitForIdleSync()
         }
-        render(StationState(apps = apps, cacheResults = results))
+        val mb = 1024L * 1024
+        render(StationState(apps = apps, cacheResults = results,
+            cacheSavings = CacheSavings.Measurement(Bytes(560 * mb), Bytes(80 * mb), 17)))
+        find("480 MB")
+        find("Space saved from app cache")
         find("17 requested")
         find("Done")
         assertFalse(visible().any { it.text?.toString() == "Clear selected cache" })
@@ -120,7 +125,9 @@ class CacheResultsUiTest {
         val mixed = listOf(results[0].copy(status = CacheBatch.Status.CONFIRMED), results[1],
             results[2].copy(status = CacheBatch.Status.FAILED, detail = "Settings did not respond. Try again."),
             results[3].copy(status = CacheBatch.Status.NOT_ATTEMPTED, detail = "Not confirmed after cancellation"))
-        render(StationState(apps = apps, cacheResults = mixed), dark = true, scale = 1.5f)
+        render(StationState(apps = apps, cacheResults = mixed,
+            cacheSavings = CacheSavings.Measurement(Bytes(225_792 * mb), Bytes(1024 * mb), 2)), dark = true, scale = 1.5f)
+        find("219.5 GB")
         find("1 confirmed · 1 requested · 2 need review")
         find("Done")
         capture("cache-summary-dark-large")
@@ -128,6 +135,14 @@ class CacheResultsUiTest {
         find("Couldn’t clear")
         scrollTo("Settings did not respond. Try again.")
         capture("cache-details-dark-large")
+
+        render(StationState(apps = apps, cacheResults = listOf(results.first()),
+            cacheSavings = CacheSavings.Measurement(Bytes(100), Bytes(100), 1)))
+        find("0 B")
+        find("No reduction measured yet. Android may update cache sizes later.")
+        render(StationState(apps = apps, cacheResults = listOf(results.first())))
+        find("Space saved unavailable")
+        assertFalse(visible().any { it.text?.toString() == "0 B" })
 
         render(StationState(working = true, cacheProgress = CacheBatch.Progress(null, 2, emptyList())))
         find("0 of 2 · Preparing")

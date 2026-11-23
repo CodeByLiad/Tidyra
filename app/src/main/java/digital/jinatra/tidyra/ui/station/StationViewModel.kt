@@ -30,6 +30,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.io.File
 import digital.jinatra.tidyra.core.cache.CacheBatch
+import digital.jinatra.tidyra.core.cache.CacheSavings
 import digital.jinatra.tidyra.core.cache.CacheAutomation
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.first
@@ -65,6 +66,7 @@ data class StationState(
     val selectedCachePackages: Set<String> = emptySet(),
     val cacheProgress: CacheBatch.Progress? = null,
     val cacheResults: List<CacheBatch.Item> = emptyList(),
+    val cacheSavings: CacheSavings.Measurement? = null,
     val cacheQueue: List<String> = emptyList(),
     val cacheQueueIndex: Int = 0,
     val cacheNote: String? = null,
@@ -442,10 +444,12 @@ class StationViewModel(app: Application) : AndroidViewModel(app) {
         if (_state.value.working || _state.value.scanning) return
         val approved = eligibleCachePackages(packages)
         if (approved.isEmpty()) return
-        _state.update { it.copy(working = true, cacheResults = emptyList(), cacheNote = null,
+        _state.update { it.copy(working = true, cacheResults = emptyList(), cacheNote = null, cacheSavings = null,
             cacheProgress = CacheBatch.Progress(null, approved.size, emptyList())) }
         cacheJob = viewModelScope.launch {
+            var baseline = emptyMap<String, Long>()
             try {
+                baseline = measureCacheBefore(approved.toSet())
                 val results = CacheBatch.run(approved, shizuku::canClearCache, { pkg ->
                     val result = shizuku.clearCache(pkg)
                     CacheBatch.Item(pkg, if (result.ok) CacheBatch.Status.CONFIRMED else CacheBatch.Status.FAILED,
@@ -464,7 +468,7 @@ class StationViewModel(app: Application) : AndroidViewModel(app) {
                 _state.update { it.copy(cacheNote = "Stopped: ${error.message.orEmpty()}. Unconfirmed apps can be reviewed in Settings.") }
             } finally {
                 kotlinx.coroutines.withContext(kotlinx.coroutines.NonCancellable) {
-                    refreshCacheMeasurements(approved.toSet())
+                    refreshCacheMeasurements(approved.toSet(), baseline)
                     _state.update { it.copy(working = false, cacheProgress = null, canClearCache = shizuku.canClearCache()) }
                 }
             }
@@ -479,7 +483,7 @@ class StationViewModel(app: Application) : AndroidViewModel(app) {
 
     fun dismissCacheResults() {
         if (_state.value.working || _state.value.cacheProgress != null) return
-        _state.update { it.copy(cacheResults = emptyList(), cacheNote = null, selectedCachePackages = emptySet()) }
+        _state.update { it.copy(cacheResults = emptyList(), cacheSavings = null, cacheNote = null, selectedCachePackages = emptySet()) }
     }
 
     fun useCacheAutomation(enabled: Boolean) {
@@ -491,11 +495,13 @@ class StationViewModel(app: Application) : AndroidViewModel(app) {
         if (_state.value.working || _state.value.scanning) return
         val approved = eligibleCachePackages(packages)
         if (approved.isEmpty()) return
-        _state.update { it.copy(working = true, cacheResults = emptyList(), cacheNote = null,
+        _state.update { it.copy(working = true, cacheResults = emptyList(), cacheNote = null, cacheSavings = null,
             cacheProgress = CacheBatch.Progress(null, approved.size, emptyList())) }
         cacheJob = viewModelScope.launch {
             var runId: Long? = null
+            var baseline = emptyMap<String, Long>()
             try {
+                baseline = measureCacheBefore(approved.toSet())
                 runId = if (shizuku.state() == digital.jinatra.tidyra.core.shizuku.ShizukuBridge.State.READY)
                     digital.jinatra.tidyra.core.cache.ShellCacheService.start(getApplication(), approved)
                 else CacheAutomation.start(approved) ?: error("Enable Tidyra cache assistant in Accessibility first")
@@ -513,7 +519,7 @@ class StationViewModel(app: Application) : AndroidViewModel(app) {
             } finally {
                 runId?.let(CacheAutomation::cancel)
                 kotlinx.coroutines.withContext(kotlinx.coroutines.NonCancellable) {
-                    refreshCacheMeasurements(approved.toSet())
+                    refreshCacheMeasurements(approved.toSet(), baseline)
                     _state.update { it.copy(working = false, cacheProgress = null) }
                 }
             }
@@ -526,7 +532,7 @@ class StationViewModel(app: Application) : AndroidViewModel(app) {
         val approved = eligibleCachePackages(packages)
         if (approved.isEmpty()) return null
         _state.update { it.copy(working = true, cacheQueue = approved, cacheQueueIndex = 0,
-            cacheResults = emptyList(), cacheNote = null) }
+            cacheResults = emptyList(), cacheSavings = null, cacheNote = null) }
         return approved.first()
     }
 
@@ -549,7 +555,13 @@ class StationViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    private suspend fun refreshCacheMeasurements(packages: Set<String>) {
+    private suspend fun measureCacheBefore(packages: Set<String>): Map<String, Long> = try {
+        inventory.load(packages).associate { it.packageName to it.cacheBytes.value }
+    } catch (cancelled: CancellationException) {
+        throw cancelled
+    } catch (_: Exception) { emptyMap() }
+
+    private suspend fun refreshCacheMeasurements(packages: Set<String>, baseline: Map<String, Long>? = null) {
         runCatching { inventory.load(packages) }.onSuccess { measured ->
             val updated = measured.associateBy { it.packageName }
             val capacity = capacityOnly()
@@ -560,6 +572,8 @@ class StationViewModel(app: Application) : AndroidViewModel(app) {
                 val visible = findings.firstOrNull { it.kind == FindingKind.APP_CACHE }?.items.orEmpty().map { it.path }.toSet()
                 val snapshot = current.snapshot?.copy(freeBytes = capacity.freeBytes, takenAtMillis = capacity.takenAtMillis)
                 current.copy(apps = apps, snapshot = snapshot, findings = findings.sortedByDescending { it.frees.value },
+                    cacheSavings = baseline?.let { CacheSavings.measure(it,
+                        measured.associate { app -> app.packageName to app.cacheBytes.value }, current.cacheResults) } ?: current.cacheSavings,
                     selectedCachePackages = current.selectedCachePackages.intersect(visible),
                     containers = buildContainers(snapshot, apps, findings, current.selectedItems))
             }

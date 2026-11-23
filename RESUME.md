@@ -4,6 +4,37 @@ Checkpoint: 2026-11-23. Version 0.1.7 / code 8 adds labelled category colours, a
 
 ## 0.1.7: completed requested UI changes
 
+### Pending 0.1.8: prominent measured cache savings
+
+Owner requested a large space-saved total on the final automatic cache screen.
+Implemented CacheSavings with fresh per-package before/after cache readings around
+both direct and automated operations. Only REQUESTED/CONFIRMED packages contribute;
+duplicates count once, failures/unattempted targets are excluded, missing/negative
+readings make the total unavailable, and net growth offsets reductions. Selection
+estimates and unrelated device-free changes are never used as saved bytes.
+CacheResults shows the amount in the large Playfair figure with automatic text fit,
+keeps all app results visible and labels zero/unavailable readings accurately. Saved
+totals reset on each new operation and dismissal. Final progress says Measuring
+space saved while readings refresh.
+
+95 unit tests pass. Added CacheSavingsDeviceTest: an exact two-package disposable
+allowlist is passed directly to StationViewModel; no GUI selection or confirmation
+clicks. It verifies actual cache reduction, internal/external keep markers, and the
+measured amount reaching the final screen. Extended CacheResultsUiTest covers large
+totals at 1.5x text, zero and unavailable readings. Both phone tests are PENDING:
+the first attempt stopped because the fresh .usbtest package lacks Shizuku server
+authorization and the phone was locked. pm grant API_V23 did not grant the server's
+cached permission. Need unlock, then request Shizuku through the isolated app and
+grant it for Tidyra USB Test only before rerunning. No fixture or personal cache
+was cleared by that failed attempt. Owner was asked to unlock; no reply yet.
+
+The latest QA target/runner and two fixture APKs are installed. Do not remove them
+before the pending fixture test. Production 0.1.7 is still the installed/published
+version at this checkpoint. Build 0.1.8 / code 9 as a signed candidate, but do not
+claim final Pixel verification or publish before the new test passes. Keep emulator
+closed. Evidence: build/nov23-savings-*. Tool scripts must guard both lock state and
+active-window package; do not inspect notification shade or other apps.
+
 Published [v0.1.7](https://github.com/CodeByLiad/Tidyra/releases/tag/v0.1.7)
 from 61408406f8ad06f91cc52d26b760579c049905a6. Installed in place on the
 Pixel 10 Pro / Android 17; version code 8 and version name 0.1.7 verified.
