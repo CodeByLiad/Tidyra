@@ -6,6 +6,17 @@ Checkpoint: 2026-11-23. Version 0.1.8 / code 9 adds a prominent measured cache-s
 
 ### 0.1.8: verified prominent measured cache savings
 
+Published [v0.1.8](https://github.com/CodeByLiad/Tidyra/releases/tag/v0.1.8)
+from 920b1a481e0400d344e27ce329e36dfbd381f2a6. Installed in place on the
+Pixel as version 0.1.8 / code 9 using the original production signing certificate.
+Installed base.apk and GitHub's uploaded APK digest both match
+01934b48795ecaa0cc51dcf35e1fb0d233a3a531785e0aacd914a24efba10156.
+All four public release assets and their digests were verified. Production cold
+launch and a read-only scan passed. The two owned fixture apps and the empty QA
+target/runner were removed after testing; production data/Trash and .debug were
+preserved. The emulator remains closed. 95 unit tests and lint passed. The large
+real-fixture result was 32 MB; the 219.5 GB screen was display-only sample data.
+
 Owner unlocked the Pixel and Shizuku permission was granted specifically to Tidyra
 USB Test through its named permission dialog. CacheSavingsDeviceTest and
 CacheResultsUiTest both PASSED in 19.368 seconds. The actual StationViewModel flow
