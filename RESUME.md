@@ -1,10 +1,21 @@
 # Resume Tidyra here
 
-Checkpoint: 2026-11-23. Version 0.1.7 / code 8 adds labelled category colours, always-visible cache results and grouped duplicate comparisons. It retains the single progress bar, Pixel gesture inset, and automatic Shizuku Settings batches. Minimum Android 11, compile/target SDK 36.
+Checkpoint: 2026-11-23. Version 0.1.8 / code 9 adds a prominent measured cache-savings figure to 0.1.7's labelled storage bar, visible cache results and grouped duplicate comparisons. Minimum Android 11, compile/target SDK 36.
 
 ## 0.1.7: completed requested UI changes
 
-### Pending 0.1.8: prominent measured cache savings
+### 0.1.8: verified prominent measured cache savings
+
+Owner unlocked the Pixel and Shizuku permission was granted specifically to Tidyra
+USB Test through its named permission dialog. CacheSavingsDeviceTest and
+CacheResultsUiTest both PASSED in 19.368 seconds. The actual StationViewModel flow
+received only the two hard-coded disposable fixture package IDs, cleared both
+16 MiB cache files, measured the reduction and exposed the large result text on
+the actual completion screen. Both internal and external keep markers survived.
+Display checks passed for 480 MB, 219.5 GB at 1.5x text, zero reduction, unavailable
+measurements, the full app list and completion/cancel controls. No personal cache
+was targeted. Final evidence: build/nov23-savings-pixel-verified.txt and ignored
+build/verified-cache-*.png. Earlier pending notes below are historical.
 
 Signed candidate build completed successfully, including testDebugUnitTest (95
 tests) and lintDebug without errors. Original production certificate verified.

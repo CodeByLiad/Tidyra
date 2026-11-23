@@ -10,9 +10,9 @@ Failed and unattempted apps do not contribute. Duplicate package results count o
 
 The large figure adapts to the available width and text size. Measuring space saved remains visible in progress until the final readings arrive. The full app-by-app outcomes, Done, and Review remaining apps are retained.
 
-## Validation status
+## Verification
 
-95 unit tests pass, including missing measurements, duplicate outcomes, failures, cancellation, unchanged cache and net growth. New Pixel fixture and display tests are prepared; their final run is pending phone unlock and Shizuku authorization for the separate test package. This candidate has not yet been published as a release.
+95 unit tests pass, including missing measurements, duplicate outcomes, failures, cancellation, unchanged cache and net growth. Android lint reports no errors. Physical Pixel Android 17 tests passed: the actual automatic flow cleared two allowlisted disposable 16 MiB caches, retained internal/external saved data, and showed the measured amount on the completed screen. Display tests passed for the full app list, a large total at 1.5x text size, zero reduction and unavailable measurements. Personal app caches were not targeted.
 
 The category legend, duplicate comparisons, kept-copy protections, single progress indicator and cache-only safety checks from 0.1.7 are retained. Install in place to preserve app data and Trash. Development test packages remain separate.
 
