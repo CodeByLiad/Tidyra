@@ -107,8 +107,15 @@ data class ActionPlan(
     val approved: List<Finding>,
     val itemPaths: Set<String>,
 ) {
-    val fileItems: List<Finding.Item> = approved.filter { it.kind.canTrash }
-        .flatMap { it.items }.filter { it.path in itemPaths }.distinctBy { it.path }
+    val fileItems: List<Finding.Item> = run {
+        val retained = approved.flatMap { it.items }.mapNotNull { it.keptCounterpart }.toSet()
+        approved.filter { it.kind.canTrash }.flatMap { it.items }
+            .filter { it.path in itemPaths && it.path !in retained }
+            .groupBy { it.path }.values.map { matches ->
+                // An overlapping large/old-file finding must not discard duplicate validation.
+                matches.firstOrNull { it.keptCounterpart != null } ?: matches.first()
+            }
+    }
     val frees: Bytes = Bytes(fileItems.sumOf { it.size.value })
 
     val itemCount: Int get() = fileItems.size

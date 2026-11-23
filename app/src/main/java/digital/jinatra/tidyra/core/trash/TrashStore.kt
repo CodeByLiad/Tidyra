@@ -49,10 +49,12 @@ class TrashStore internal constructor(private val root: File,
         var moved = 0L
         var count = 0
         val unique = paths.distinct()
+        val retained = expected.values.mapNotNull { it.keptCounterpart }.map { File(it).canonicalPath }.toSet()
         for ((index, path) in unique.withIndex()) {
             runCatching { onProgress(OperationProgress("Moving to Trash", index, unique.size, File(path).name)) }
             runCatching {
                 val source = File(path)
+                check(source.canonicalPath !in retained) { "Kept duplicate copy; left alone" }
                 expected[path]?.let { item ->
                     check(source.lastModified() == item.lastModifiedMillis &&
                         (source.isDirectory || source.length() == item.size.value)) { "Changed since scan; scan again" }

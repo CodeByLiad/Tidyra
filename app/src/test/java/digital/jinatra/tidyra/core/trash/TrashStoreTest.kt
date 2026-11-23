@@ -11,6 +11,25 @@ import org.junit.rules.TemporaryFolder
 import java.io.File
 
 class TrashStoreTest {
+    @Test fun `duplicate keeper survives even when another finding requests it in either order`() = runBlocking {
+        for (keptFirst in listOf(true, false)) {
+            val dir = temp.newFolder()
+            val kept = File(dir, "kept.txt").apply { writeText("identical contents") }
+            val copy = File(dir, "copy.txt").apply { writeBytes(kept.readBytes()) }
+            val expected = digital.jinatra.tidyra.core.model.Finding.Item(copy.path,
+                digital.jinatra.tidyra.core.model.Bytes(copy.length()), copy.lastModified(), keptCounterpart = kept.path)
+            val trash = TrashStore(File(dir, "trash"))
+            val paths = if (keptFirst) listOf(kept.path, copy.path) else listOf(copy.path, kept.path)
+            val result = trash.trash(paths, mapOf(copy.path to expected))
+            assertEquals(1, result.itemsRemoved)
+            assertEquals(1, result.itemsFailed.size)
+            assertEquals("identical contents", kept.readText())
+            assertFalse(copy.exists())
+            assertTrue(trash.restore(trash.contents().single().id))
+            assertEquals(kept.readText(), copy.readText())
+        }
+    }
+
     @get:Rule val temp = TemporaryFolder()
     private fun store() = TrashStore(File(temp.root, "trash"))
     private fun source(name: String = "photo.jpg", text: String = "original") =

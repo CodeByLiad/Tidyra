@@ -7,6 +7,7 @@ import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.key
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Density
@@ -56,6 +57,15 @@ class CacheResultsUiTest {
             assertTrue(node.performAction(AccessibilityNodeInfo.ACTION_CLICK))
             instrumentation.waitForIdleSync()
         }
+        fun scrollTo(text: String) {
+            repeat(12) {
+                if (visible().any { it.text?.toString() == text && it.isVisibleToUser }) return
+                val list = visible().firstOrNull { it.isScrollable } ?: error("No results list")
+                check(list.performAction(AccessibilityNodeInfo.ACTION_SCROLL_FORWARD))
+                Thread.sleep(150)
+            }
+            find(text)
+        }
         fun capture(name: String) {
             ui.takeScreenshot()?.let { bitmap ->
                 File(context.cacheDir, "$name.png").outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
@@ -72,6 +82,7 @@ class CacheResultsUiTest {
         fun render(state: StationState, dark: Boolean = false, scale: Float = 1f) {
             instrumentation.runOnMainSync {
                 activity.setContent {
+                    key(state) {
                     val density = LocalDensity.current
                     CompositionLocalProvider(LocalDensity provides Density(density.density, scale)) {
                         TidyraTheme(darkTheme = dark) {
@@ -82,6 +93,7 @@ class CacheResultsUiTest {
                             }
                         }
                     }
+                    }
                 }
             }
             instrumentation.waitForIdleSync()
@@ -90,13 +102,12 @@ class CacheResultsUiTest {
         find("17 requested")
         find("Done")
         assertFalse(visible().any { it.text?.toString() == "Clear selected cache" })
-        assertFalse(visible().any { it.text?.toString() == "Sample app 1" })
-        capture("cache-summary-light")
-        click("View app results (17)")
         find("Sample app 1")
+        assertFalse(visible().any { it.text?.toString()?.startsWith("View app results") == true })
+        capture("cache-summary-light")
         assertFalse(visible().any { it.text?.contains("Settings updated") == true })
+        scrollTo("Sample app 17")
         capture("cache-details-light")
-        click("Hide app results")
         click("Review remaining apps")
         assertTrue(dismissed.get())
         assertFalse(back.get())
@@ -113,9 +124,9 @@ class CacheResultsUiTest {
         find("1 confirmed · 1 requested · 2 need review")
         find("Done")
         capture("cache-summary-dark-large")
-        click("View app results (4)")
+        scrollTo("Couldn’t clear")
         find("Couldn’t clear")
-        find("Settings did not respond. Try again.")
+        scrollTo("Settings did not respond. Try again.")
         capture("cache-details-dark-large")
 
         render(StationState(working = true, cacheProgress = CacheBatch.Progress(null, 2, emptyList())))

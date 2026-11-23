@@ -4,6 +4,10 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.Canvas
+import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -39,9 +43,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -176,10 +177,16 @@ fun StationScreen(
                     )
                 }
                 item {
+                    val count = state.containers.count { it.bytes.value > 0 }
+                    val measured = state.containers.sumOf { it.bytes.value }
+                    val remaining = ((state.snapshot?.usedBytes?.value ?: 0) - measured).coerceAtLeast(0)
+                    if (remaining > 0) StorageLegendRow(count + 1, "System & unmeasured", Bytes(remaining), colors.onSurfaceVariant)
+                    StorageLegendRow(count + if (remaining > 0) 2 else 1, "Free", state.snapshot?.freeBytes ?: Bytes.ZERO, colors.surfaceContainerHighest)
+                }
+                item {
                     Footnote(
-                        "The rule is the whole ${Format.size(state.snapshot?.totalBytes ?: Bytes.ZERO)}: " +
-                            "ink segments follow this list; the muted remainder is system or unmeasured storage. " +
-                            "Only the pale span at the end is free. Shared app media is counted by file type and subtracted from app data; shared app storage groups are counted once.",
+                        "Colours and numbers match the bar above. Small segments may not fit a number. " +
+                            "The whole bar is ${Format.size(state.snapshot?.totalBytes ?: Bytes.ZERO)}; the last segment is free space.",
                     )
                 }
             }
@@ -324,25 +331,25 @@ private fun Stat(label: String, value: String, modifier: Modifier = Modifier) {
 private fun CapacityRule(state: StationState, scale: SizeScale) {
     val colors = MaterialTheme.colorScheme
     val used = state.containers.filter { it.bytes.value > 0 }
-    val ink = colors.onSurface
-    val accent = colors.primary
     val track = colors.surfaceContainerHighest
     val remainder = colors.onSurfaceVariant
     val total = state.snapshot?.totalBytes ?: Bytes.ZERO
     val usedBytes = state.snapshot?.usedBytes ?: Bytes.ZERO
-    // Compose respects the system animation duration scale, including Remove animations.
-    val proposedShares = used.map { container ->
-        animateFloatAsState(scale.fraction(container.proposed),
-            animationSpec = tween(420, easing = CubicBezierEasing(0.16f, 1f, 0.3f, 1f)), label = "proposed-span").value
+    val dark = colors.background.luminance() < 0.5f
+    val paint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+        textAlign = android.graphics.Paint.Align.CENTER
+        typeface = android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.NORMAL)
     }
     Canvas(
         Modifier
             .fillMaxWidth()
             .padding(horizontal = Module.x3, vertical = Module.u)
-            .height(Module.x2)
+            .height(32.dp)
             .clearAndSetSemantics {
                 contentDescription =
-                    "${Format.spokenSize(usedBytes)} used of ${Format.spokenSize(total)}"
+                    "${Format.spokenSize(usedBytes)} used of ${Format.spokenSize(total)}. " +
+                    used.mapIndexed { index, container -> "${index + 1}: ${container.category.label}, ${Format.spokenSize(container.bytes)}" }.joinToString(". ") +
+                    ". System and unmeasured storage, then free space. Matching rows follow."
             },
     ) {
         drawRect(track)
@@ -350,14 +357,18 @@ private fun CapacityRule(state: StationState, scale: SizeScale) {
         drawRect(remainder, size = Size(occupied, size.height))
         val gap = 1.dp.toPx()
         var x = 0f
+        fun label(number: Int, start: Float, width: Float, foreground: Color) {
+            if (width < 24.dp.toPx()) return
+            paint.color = foreground.toArgb()
+            paint.textSize = 12.sp.toPx()
+            drawContext.canvas.nativeCanvas.drawText(number.toString(), start + width / 2,
+                size.height / 2 - (paint.ascent() + paint.descent()) / 2, paint)
+        }
         used.forEachIndexed { index, container ->
             val w = (scale.fraction(container.bytes) * size.width).coerceAtMost((occupied - x).coerceAtLeast(0f))
             if (w <= 0f) return@forEachIndexed
-            drawRect(ink, topLeft = Offset(x, 0f), size = Size(w, size.height))
-            if (proposedShares[index] > 0 && container.bytes.value > 0) {
-                val p = proposedShares[index] * size.width
-                drawRect(accent, topLeft = Offset(x, 0f), size = Size(p.coerceAtMost(w), size.height))
-            }
+            drawRect(storageColor(container.category.label, dark), topLeft = Offset(x, 0f), size = Size(w, size.height))
+            label(index + 1, x, w, if (dark) Color.Black else Color.White)
             x += w
             // A hairline between neighbours, cut out of the segment just drawn rather than
             // added after it, so the rule still measures the device exactly. Segments too
@@ -366,6 +377,34 @@ private fun CapacityRule(state: StationState, scale: SizeScale) {
                 drawRect(track, topLeft = Offset(x - gap, 0f), size = Size(gap, size.height))
             }
         }
+        label(used.size + 1, x, (occupied - x).coerceAtLeast(0f), colors.surface)
+        label(used.size + if (occupied > x + 0.1f) 2 else 1, occupied, size.width - occupied, colors.onSurface)
+    }
+}
+
+/** Chart-only semantic colours. Crimson remains the action colour elsewhere. */
+private fun storageColor(label: String, dark: Boolean): Color {
+    val pair = when (label) {
+        "Apps" -> 0xFF286B75 to 0xFF78BBC2
+        "App data" -> 0xFF77578C to 0xFFBDA1D0
+        "Photos" -> 0xFF315DA3 to 0xFF91B4EE
+        "Video" -> 0xFF985139 to 0xFFDEA18A
+        "Audio" -> 0xFF4C6B4F to 0xFFA3C09F
+        "Documents" -> 0xFF805E19 to 0xFFD2B46E
+        else -> 0xFF695F52 to 0xFFC2B7A7
+    }
+    return Color(if (dark) pair.second else pair.first)
+}
+
+@Composable
+private fun StorageLegendRow(number: Int, label: String, bytes: Bytes, color: Color) {
+    Row(Modifier.fillMaxWidth().padding(horizontal = Module.x3, vertical = Module.u),
+        verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.size(12.dp).background(color, CircleShape))
+        Text("$number", Modifier.padding(start = Module.u).width(20.dp), color = MaterialTheme.colorScheme.onSurfaceVariant,
+            style = MaterialTheme.typography.bodyMedium)
+        Text(label, Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
+        Text(Format.size(bytes), style = LocalStationType.current.amount)
     }
 }
 
@@ -397,11 +436,12 @@ private fun CategoryRow(
             },
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        Box(Modifier.size(12.dp).background(storageColor(label, colors.background.luminance() < 0.5f), CircleShape))
         Text(
             text = "$rank",
             style = MaterialTheme.typography.bodyMedium,
             color = colors.onSurfaceVariant,
-            modifier = Modifier.width(20.dp),
+            modifier = Modifier.padding(start = Module.u).width(20.dp),
         )
         Text(
             text = label,

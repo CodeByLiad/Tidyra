@@ -5,15 +5,13 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material3.*
-import androidx.compose.runtime.*
-import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import digital.jinatra.tidyra.core.model.Bytes
@@ -157,7 +155,6 @@ private fun CacheResults(state: StationState, onReview: () -> Unit, onDone: () -
     val requested = results.count { it.status == CacheBatch.Status.REQUESTED }
     val pending = results.size - confirmed - requested
     val apps = state.apps.associateBy { it.packageName }
-    var expanded by rememberSaveable(results) { mutableStateOf(false) }
     Column(modifier.fillMaxSize().navigationBarsPadding()) {
         TextButton(onClick = onDone, contentPadding = PaddingValues(0.dp),
             modifier = Modifier.padding(horizontal = Module.x3)) { Text("‹ Back") }
@@ -182,14 +179,8 @@ private fun CacheResults(state: StationState, onReview: () -> Unit, onDone: () -
                 Text("App data and logins stay.", style = MaterialTheme.typography.bodyMedium,
                     color = colors.onSurfaceVariant, modifier = Modifier.padding(top = Module.u, bottom = Module.x3))
                 HorizontalDivider()
-                TextButton(onClick = { expanded = !expanded }, contentPadding = PaddingValues(0.dp),
-                    modifier = Modifier.fillMaxWidth().semantics {
-                        stateDescription = if (expanded) "Expanded" else "Collapsed"
-                    }) {
-                    Text(if (expanded) "Hide app results" else "View app results (${results.size})", Modifier.weight(1f))
-                }
             }
-            if (expanded) items(results, key = { it.packageName }) { result ->
+            items(results, key = { it.packageName }) { result ->
                 Column(Modifier.fillMaxWidth().padding(vertical = Module.u)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         AppIcon(result.packageName, 36.dp)

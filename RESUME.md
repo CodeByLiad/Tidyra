@@ -1,11 +1,11 @@
 # Resume Tidyra here
 
-Checkpoint: 2026-11-22. Version 0.1.6 / code 7 adds compact cache results, expandable app details, Done and reset selection. It retains 0.1.5's Pixel-tested progress safe-area correction and automatic Shizuku Settings batches. Minimum Android 11, compile/target SDK 36.
+Checkpoint: 2026-11-23. Version 0.1.7 / code 8 adds labelled category colours, always-visible cache results and grouped duplicate comparisons. It retains the single progress bar, Pixel gesture inset, and automatic Shizuku Settings batches. Minimum Android 11, compile/target SDK 36.
 
-## Next session: owner's requested UI changes
+## 0.1.7: completed requested UI changes
 
-Owner explicitly deferred these to tomorrow (2026-11-23); record now, implement next
-session rather than continuing UI changes today:
+Owner resumed these changes on 2026-11-23 and requested Pixel testing only; the
+emulator was closed. All three changes below are now implemented and tested:
 
 - Storage by category: black/grey segments do not identify categories. Make each
   segment identifiable with accessible distinct colors/patterns and a matching clear
@@ -20,6 +20,34 @@ session rather than continuing UI changes today:
   sizes and a marked copy to keep. Let users explicitly select duplicate copies for
   removal while preserving at least one copy; show the selection and reclaimable
   space before confirmation. Owner requested this for the next session as well.
+
+The category bar now has stable light/dark semantic colours and numbers matched to
+category rows, with explicit System & unmeasured and Free rows. Small segments keep
+their true proportions rather than gaining artificial minimum widths. Cache results
+always list all outcomes with icons and short statuses; no View/Hide step remains.
+Duplicate review shows the retained copy beside each extra copy, image enlargement,
+full-location details, native removal checkboxes and selected count/size. Pairs are
+lazy items so large groups do not eagerly decode every preview. Compact filenames/
+locations keep comparison readable at larger text sizes; full paths open on tap.
+
+Additional safety fix: ActionPlan retains duplicate validation when the same file
+appears in another cleanup finding. Marked keepers are excluded from the plan and
+also rejected by TrashStore if another finding requests them, regardless of order.
+Two new regression tests cover overlapping findings and keeper/copy processing order.
+
+89 unit tests pass. Pixel Android 17 opt-in tests CacheResultsUiTest and
+StorageReviewUiTest both pass (final run 41.786 seconds), covering the entire
+17-result list, mixed outcomes, completion/cancel controls, category labels and
+navigation, light/dark themes, larger text, grouped image previews, selection and
+an isolated generated-image Trash/restore cycle with unchanged SHA-256 bytes.
+No personal cache, file or production Trash mutation was performed for this work.
+Phone notification shade initially covered the test app; testing resumed only after
+the owner closed it. UI inspection must check the active window's package as well
+as the foreground activity, since overlays can otherwise expose another window.
+Evidence is ignored build/nov23-*. Tests require .usbtest plus explicit opt-in args;
+duplicate mutation is restricted to a generated UUID directory in QA private cache.
+Mobbin references reviewed: [stoic storage legend](https://mobbin.com/screens/223c65fc-88b9-4a5c-b0b6-f83138105745)
+and [side-by-side comparison](https://mobbin.com/screens/2ed3f74e-74c9-45c0-8073-bb638504fedc).
 
 ## 0.1.6 distribution and final Pixel check
 

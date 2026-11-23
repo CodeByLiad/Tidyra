@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
@@ -68,6 +69,7 @@ fun FindingDetailScreen(
     // Apps cannot be moved to a trash folder: Android uninstalls them through its own
     // dialog. A tick here would promise an action the approval bar cannot carry out.
     val appFinding = finding.kind == FindingKind.UNUSED_APP || finding.kind == FindingKind.APP_CACHE
+    val duplicates = finding.kind == FindingKind.DUPLICATE_FILES
     val chosen = finding.items.filter { it.path in selectedItems }
     val chosenBytes = Bytes(chosen.sumOf { it.size.value })
     val allSelected = chosen.size == finding.items.size
@@ -88,7 +90,7 @@ fun FindingDetailScreen(
             ) {
                 BackButton(onBack)
                 Text(
-                    text = finding.title,
+                    text = if (duplicates) "Duplicate files" else finding.title,
                     style = type.section,
                     color = colors.onSurface,
                     modifier = Modifier
@@ -96,12 +98,12 @@ fun FindingDetailScreen(
                         .semantics { heading() },
                 )
                 Text(
-                    text = finding.detail,
+                    text = if (duplicates) "Identical contents. Select extra copies for Trash; marked copies stay. Tap a file for its preview and full location." else finding.detail,
                     style = MaterialTheme.typography.bodyMedium,
                     color = colors.onSurfaceVariant,
                     modifier = Modifier.padding(top = Module.half),
                 )
-                Row(
+                if (!duplicates) Row(
                     Modifier.padding(top = Module.x2, bottom = Module.x2),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
@@ -177,10 +179,10 @@ fun FindingDetailScreen(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Column(Modifier.weight(1f)) {
-                    Text("SELECTED", style = type.stencil, color = colors.onSurfaceVariant)
+                    if (!duplicates) Text("SELECTED", style = type.stencil, color = colors.onSurfaceVariant)
                     Text(
-                        text = "${Format.size(chosenBytes)} · ${chosen.size} of ${finding.items.size}",
-                        style = MaterialTheme.typography.titleLarge,
+                        text = "${Format.size(chosenBytes)} · ${chosen.size} of ${finding.items.size}" + if (duplicates) " copies selected" else "",
+                        style = if (duplicates) MaterialTheme.typography.bodyMedium else MaterialTheme.typography.titleLarge,
                         color = if (chosen.isEmpty()) colors.onSurfaceVariant else MaterialTheme.colorScheme.primary,
                     )
                 }
@@ -195,7 +197,17 @@ fun FindingDetailScreen(
             HorizontalDivider(color = colors.outline)
         }
 
-        items(finding.items, key = { it.path }) { item ->
+        if (duplicates) {
+            val groups = finding.items.filter { it.keptCounterpart != null }.groupBy { it.keptCounterpart!! }.entries.toList()
+            groups.forEach { group ->
+                itemsIndexed(group.value, key = { _, copy -> "duplicate:${copy.path}" }) { index, copy ->
+                    DuplicateComparison(group.key, copy, group.value.size, index == 0,
+                        index == group.value.lastIndex, selectedItems, onToggleItem)
+                }
+            }
+        }
+        items(if (finding.kind == FindingKind.DUPLICATE_FILES) finding.items.filter { it.keptCounterpart == null }
+            else finding.items, key = { it.path }) { item ->
             ItemRow(
                 item = item,
                 selected = item.path in selectedItems,
