@@ -6,6 +6,14 @@ Checkpoint: 2026-11-23. Version 0.1.7 / code 8 adds labelled category colours, a
 
 ### Pending 0.1.8: prominent measured cache savings
 
+Signed candidate build completed successfully, including testDebugUnitTest (95
+tests) and lintDebug without errors. Original production certificate verified.
+Candidate: build/release/0.1.8/Tidyra-0.1.8.apk, SHA-256
+466ce74e39050315e4467acd31a97fe5b510abcbe87f2e37aad5e3d859efa76c.
+Source commit 5f074bd is pushed to GitHub main. No v0.1.8 release was published and
+the candidate was NOT installed over production because new phone tests still
+require unlock/QA Shizuku authorization. Last lock check remained showing=true.
+
 Owner requested a large space-saved total on the final automatic cache screen.
 Implemented CacheSavings with fresh per-package before/after cache readings around
 both direct and automated operations. Only REQUESTED/CONFIRMED packages contribute;
