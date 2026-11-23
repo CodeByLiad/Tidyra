@@ -314,3 +314,29 @@ A 6dp pip in the relevant status colour, a Playfair title, plain body copy, and 
 - **Don't** add ripple to a text tab.
 - **Don't** add `statusBarsPadding()` to a section rendered under the masthead.
 - **Don't** let a corner radius exceed 4dp outside the circular selection controls and status pips.
+
+## Storage breakdown semantics
+
+The owner's requested category identification extends the colour vocabulary only
+inside the storage bar and its matching legend. Crimson remains the action accent.
+Category colours are stable across scans, with corresponding light/dark values:
+
+| Category | Light | Dark |
+| --- | --- | --- |
+| Apps | #286B75 | #78BBC2 |
+| App data | #77578C | #BDA1D0 |
+| Photos | #315DA3 | #91B4EE |
+| Video | #985139 | #DEA18A |
+| Audio | #4C6B4F | #A3C09F |
+| Documents | #805E19 | #D2B46E |
+| Everything else | #695F52 | #C2B7A7 |
+
+System/unmeasured and free space use labelled neutral segments. Numbers connect
+segments to the rows, so colour is not the only identifier. Keep the whole-device
+denominator and true proportions: tiny segments do not gain artificial minimum
+widths and their complete labels remain available in the legend and TalkBack.
+
+Cache completion lists all app outcomes immediately. Duplicate comparison places
+the marked retained file beside each extra copy; thumbnail/name/location opens
+preview and full path, while only the native checkbox selects removal. Preview
+pairs load lazily, and the kept copy stays protected even across cleanup overlaps.

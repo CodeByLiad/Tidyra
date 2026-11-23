@@ -4,6 +4,20 @@ Checkpoint: 2026-11-23. Version 0.1.7 / code 8 adds labelled category colours, a
 
 ## 0.1.7: completed requested UI changes
 
+Published [v0.1.7](https://github.com/CodeByLiad/Tidyra/releases/tag/v0.1.7)
+from 61408406f8ad06f91cc52d26b760579c049905a6. Installed in place on the
+Pixel 10 Pro / Android 17; version code 8 and version name 0.1.7 verified.
+Installed base.apk and GitHub's uploaded APK digest both match
+215efb77a9943bc473e1cc66afbd05b974fc8f0764377399ca10515602bf1dde.
+Original signing certificate verified. Final production build passed 89 tests and
+lint without errors. All four release assets are public and their digests verified.
+The owner unlocked the Pixel after the build. Production cold launch and read-only
+scan passed, one progress indicator was exposed during Measuring apps, and the live
+Storage screen exposed all seven numbered category rows with the matching bar.
+This session's QA target/runner were removed after generated files were restored;
+production data/Trash and the older .debug package were preserved. The emulator
+remains closed as requested.
+
 Owner resumed these changes on 2026-11-23 and requested Pixel testing only; the
 emulator was closed. All three changes below are now implemented and tested:
 
